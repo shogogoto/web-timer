@@ -14,8 +14,21 @@ from .models import PushSubscription
 
 
 PRIVATE_KEY_PATH = Path(os.getenv("VAPID_PRIVATE_KEY", "data/vapid_private.pem"))
-VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
 logger = logging.getLogger(__name__)
+
+
+def normalize_vapid_subject(value: str | None) -> str:
+    subject = (value or "mailto:admin@example.com").strip()
+    if not subject:
+        return "mailto:admin@example.com"
+    if "@" in subject and ":" not in subject:
+        subject = f"mailto:{subject}"
+    if not subject.startswith(("mailto:", "https://")):
+        raise ValueError("VAPID_SUBJECTはmailto:メールアドレス、またはhttps:// URLで設定してください")
+    return subject
+
+
+VAPID_SUBJECT = normalize_vapid_subject(os.getenv("VAPID_SUBJECT"))
 
 
 def ensure_vapid_key() -> None:

@@ -72,9 +72,17 @@ TIMER_IMAGE=ghcr.io/shogogoto/web-timer:0.1.0
 | `SESSION_SECRET` | なし | Cookieセッション署名用のランダムな秘密値 |
 | `COOKIE_SECURE` | `false` | HTTPS運用時は`true` |
 | `ALLOW_SHORT_TIMERS` | `false` | 1秒・5秒のデバッグ用タイマーを表示 |
-| `VAPID_SUBJECT` | `mailto:admin@example.com` | Web Push管理者の連絡先 |
+| `VAPID_SUBJECT` | `mailto:admin@example.com` | Web Push管理者の連絡先。`mailto:owner@example.com`形式 |
 
 `ADMIN_USERNAME`と`ADMIN_PASSWORD`は、空のDBへ最初の管理者を作るときだけ使われます。既存DBがある状態で`.env`を書き換えても、既存アカウントの認証情報は変わりません。
+
+`VAPID_SUBJECT`はWeb Pushの署名に必要です。メールアドレスを指定する場合は、次のように`mailto:`を付けます。単なるメールアドレスもアプリ側で補完しますが、設定ファイルでは完全な形式を推奨します。
+
+```dotenv
+VAPID_SUBJECT=mailto:owner@example.com
+```
+
+`mailto:`または`https://`のどちらでもない値を指定すると、設定ミスが分かるようにアプリは起動時にエラーを出します。
 
 ## HTTPSと公開時の注意
 
