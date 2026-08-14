@@ -1,9 +1,10 @@
 services:
   timer:
+    image: ${TIMER_IMAGE:-ghcr.io/shogogoto/web-timer:latest}
     build: .
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${TIMER_PORT:-8000}:8000"
     environment:
       TZ: Asia/Tokyo
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
