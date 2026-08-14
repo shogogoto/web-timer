@@ -9,7 +9,7 @@
       <span>今日</span><strong>{{ activity.today_minutes }}<small>分</small></strong>
     </article>
     <article class="summary-card weekly-summary">
-      <div class="summary-heading"><h2>今週</h2><strong>{{ activity.week_minutes }}分</strong></div>
+      <div class="summary-heading"><h2>今週</h2></div>
       <div class="week-chart">
         {% for day in activity.week %}
         <div class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.minutes }}分">
@@ -21,7 +21,7 @@
     <article class="summary-card monthly-summary">
       <div class="summary-heading month-heading">
         <a href="/admin/users/{{ account.id }}?month={{ activity.previous_month }}" aria-label="前月">‹</a>
-        <h2>{{ activity.month_label }}</h2><strong>{{ activity.month_minutes }}分</strong>
+        <h2>{{ activity.month_label }}</h2>
         <a href="/admin/users/{{ account.id }}?month={{ activity.next_month }}" aria-label="翌月">›</a>
       </div>
       <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
