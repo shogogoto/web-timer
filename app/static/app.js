@@ -1,11 +1,12 @@
-function studyTimer(initial, defaultMinutes) {
+function studyTimer(initial, defaultSeconds) {
   return {
-    minutes: initial ? initial.planned / 60 : defaultMinutes,
-    remaining: initial ? initial.remaining : defaultMinutes * 60,
+    selectedSeconds: initial ? initial.planned : defaultSeconds,
+    remaining: initial ? initial.remaining : defaultSeconds,
     phase: initial ? initial.status : 'select',
     sessionId: initial ? initial.id : null,
     error: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false,
-    get display() { const s = this.phase === 'select' ? this.minutes * 60 : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
+    get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
+    get selectionLabel() { return this.selectedSeconds < 60 ? `${this.selectedSeconds}秒` : `${this.selectedSeconds/60}分` },
     init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
     async request(path, body) {
       const options = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}};
@@ -16,7 +17,7 @@ function studyTimer(initial, defaultMinutes) {
     },
     unlockAudio() { if (!this.audioContext) this.audioContext = new (window.AudioContext || window.webkitAudioContext)(); if(this.audioContext.state==='suspended')this.audioContext.resume(); },
     async setDebugTimer(seconds) { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:seconds}); this.sessionId=r.id; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
-    async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.minutes*60}); this.sessionId=r.id; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
+    async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.selectedSeconds}); this.sessionId=r.id; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); if(this.remaining===0)this.finish(true)},250); },
     async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; } catch(e){this.error=e.message} },

@@ -2,11 +2,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.main import last_planned_minutes
+from app.main import last_planned_seconds
 from app.models import TimerSession, User
 
 
-def test_last_planned_minutes_is_kept_per_user():
+def test_last_planned_seconds_is_kept_per_user():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -21,11 +21,11 @@ def test_last_planned_minutes_is_kept_per_user():
         ])
         db.commit()
 
-        assert last_planned_minutes(db, first.id) == 40
-        assert last_planned_minutes(db, second.id) == 60
+        assert last_planned_seconds(db, first.id) == 2400
+        assert last_planned_seconds(db, second.id) == 3600
 
 
-def test_debug_timer_is_not_kept_as_default():
+def test_debug_timer_is_kept_as_default():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -38,4 +38,4 @@ def test_debug_timer_is_not_kept_as_default():
         ])
         db.commit()
 
-        assert last_planned_minutes(db, user.id) == 25
+        assert last_planned_seconds(db, user.id, allow_short=True) == 5
