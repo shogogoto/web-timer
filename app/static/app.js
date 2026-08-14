@@ -6,7 +6,7 @@ function studyTimer(initial) {
     sessionId: initial ? initial.id : null,
     error: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false,
     get display() { const s = this.phase === 'select' ? this.minutes * 60 : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
-    init() { window.addEventListener('pagehide',()=>this.pauseOnPageExit()); if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
+    init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
     async request(path, body) {
       const options = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}};
       if (body) options.body = new URLSearchParams(body);
@@ -20,7 +20,6 @@ function studyTimer(initial) {
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); if(this.remaining===0)this.finish(true)},250); },
     async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; } catch(e){this.error=e.message} },
-    pauseOnPageExit() { if(this.phase==='running' && this.sessionId) navigator.sendBeacon(`/api/sessions/${this.sessionId}/pause`); },
     async resume() { try { const r=await this.request(`/api/sessions/${this.sessionId}/resume`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     async finish(completed) { try { clearInterval(this.interval); if(completed){this.phase='finished'; this.ring();} await this.request(`/api/sessions/${this.sessionId}/finish`); if(completed) setTimeout(()=>location.reload(),2800); else location.reload(); } catch(e){this.error=e.message} },
     async registerPushWorker() { if(!window.isSecureContext){this.error='バックグラウンド通知を使うにはHTTPSでアクセスしてください'; return;} if('serviceWorker' in navigator && 'PushManager' in window) this.pushRegistration=await navigator.serviceWorker.register('/sw.js'); },
