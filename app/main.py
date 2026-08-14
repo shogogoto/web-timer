@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -199,7 +199,7 @@ def resume(session_id: int, user: User = Depends(current_user), db: Session = De
 
 
 @app.post("/api/sessions/{session_id}/finish")
-def finish(session_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def finish(session_id: int, background_tasks: BackgroundTasks, user: User = Depends(current_user), db: Session = Depends(get_db)):
     session = owned_session(session_id, user, db)
     if session.status in ("completed", "stopped"):
         return {"status": session.status, "worked_seconds": session.worked_seconds}
@@ -211,6 +211,8 @@ def finish(session_id: int, user: User = Depends(current_user), db: Session = De
     session.pause_started_at = None
     session.status = "completed" if session.worked_seconds >= session.planned_seconds else "stopped"
     db.commit()
+    if session.status == "completed":
+        background_tasks.add_task(send_timer_notification_async, SessionLocal, user.id)
     return {"status": session.status, "worked_seconds": session.worked_seconds}
 
 

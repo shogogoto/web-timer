@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from .models import PushSubscription
 
 PRIVATE_KEY_PATH = Path(os.getenv("VAPID_PRIVATE_KEY", "data/vapid_private.pem"))
 VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@example.com")
+logger = logging.getLogger(__name__)
 
 
 def ensure_vapid_key() -> None:
@@ -53,6 +55,8 @@ def send_timer_notification(db, user_id: int) -> None:
             if exc.response is not None and exc.response.status_code in (404, 410):
                 db.delete(subscription)
                 db.commit()
+            else:
+                logger.warning("Web Push delivery failed for subscription %s: %s", subscription.id, exc)
 
 
 async def send_timer_notification_async(db_factory, user_id: int) -> None:
