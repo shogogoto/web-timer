@@ -398,6 +398,15 @@ def service_worker():
     )
 
 
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_app_manifest():
+    return FileResponse(
+        BASE_DIR / "static" / "manifest.webmanifest",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/api/push/config")
 def push_config(_: User = Depends(current_user)):
     return {"enabled": True, "application_server_key": application_server_key()}
