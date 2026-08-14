@@ -93,7 +93,8 @@ input {
 .error { min-height: 1.5rem; color: var(--danger); }
 
 .activity-grid { display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
-.summary-card { padding: 1.25rem; background: var(--surface); border-radius: 1rem; box-shadow: 0 8px 30px var(--shadow); }
+.activity-grid > * { min-width: 0; }
+.summary-card { min-width: 0; padding: 1.25rem; background: var(--surface); border-radius: 1rem; box-shadow: 0 8px 30px var(--shadow); }
 .today-summary { display: grid; place-content: center; text-align: center; }
 .today-summary span { color: var(--muted); }
 .today-summary strong { font-size: 2.2rem; }
@@ -126,7 +127,7 @@ input {
 .day-detail { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
 .detail-heading { display: flex; justify-content: space-between; align-items: baseline; }
 .detail-heading span { color: var(--muted); }
-.timeline-chart { overflow-x: auto; margin: 1rem 0 0; padding: 1.4rem 0 1.5rem; }
+.timeline-chart { max-width: 100%; overflow-x: auto; margin: 1rem 0 0; padding: 1.4rem 0 1.5rem; }
 .timeline-plot { position: relative; min-width: 32rem; height: 9rem; border-bottom: 1px solid var(--border); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), var(--border) 25%); }
 .timeline-gridline { position: absolute; inset: 0 auto 0; width: 0; }
 .timeline-gridline span { position: absolute; top: 100%; left: 0; padding-top: .45rem; color: var(--muted); font-size: .62rem; white-space: nowrap; transform: translateX(-50%); }
@@ -161,8 +162,8 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   button:hover { filter: brightness(1.12); }
 }
 
-@media (max-width: 500px) {
-  .timer-shell { padding: .75rem; }
+@media (max-width: 700px) {
+  .timer-shell, .admin-shell { padding: .75rem; }
   .timer-card { padding: 1rem; }
   .presets { flex-wrap: wrap; }
   .activity-grid { grid-template-columns: 1fr; }
@@ -172,4 +173,11 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   .activity-stats { grid-template-columns: 1fr; gap: .75rem; }
   .login { margin: 8vh 1rem; }
   .admin-activity-heading { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 400px) {
+  .summary-card { padding: 1rem; }
+  .week-chart { gap: .25rem; }
+  .month-grid { gap: .15rem; }
+  .calendar-day { min-height: 3.25rem; }
 }
