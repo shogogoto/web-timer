@@ -189,6 +189,7 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
             "day": day.day,
             "date": day.isoformat(),
             "minutes": daily_seconds.get(day, 0) // 60,
+            "has_activity": daily_seconds.get(day, 0) > 0,
             "bubble_size": round(8 + (daily_seconds.get(day, 0) / month_max * 28)) if daily_seconds.get(day, 0) and month_max else 7,
             "in_month": day.month == month_start.month,
             "is_today": day == today,

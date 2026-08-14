@@ -50,7 +50,7 @@
       <div class="calendar month-grid bubble-calendar">
         {% for week in activity.month_weeks %}{% for day in week %}
         <button type="button" @click="selectedDate='{{ day.date }}'" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.minutes }}分">
-          <span class="day-number">{{ day.day }}</span><span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>
+          <span class="day-number">{{ day.day }}</span>{% if day.has_activity %}<span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>{% endif %}
         </button>
         {% endfor %}{% endfor %}
       </div>

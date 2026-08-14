@@ -35,6 +35,8 @@ def test_activity_is_grouped_by_day_for_one_user():
     assert summary["week"][4]["minutes"] == 30
     assert summary["month_completed"] == 1
     assert summary["month_stopped"] == 1
+    assert summary["month_weeks"][1][0]["has_activity"] is False
+    assert next(day for week in summary["month_weeks"] for day in week if day["date"] == "2026-08-14")["has_activity"] is True
     assert summary["details"]["2026-08-14"]["seconds"] == 1800
     assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "08"
     assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "13"
