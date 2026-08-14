@@ -1,4 +1,5 @@
 import asyncio
+import calendar
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -109,6 +110,66 @@ def totals(db: Session, user_id: int) -> dict[str, int]:
     }
 
 
+def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> dict:
+    now = now or datetime.now(TZ)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=TZ)
+    else:
+        now = now.astimezone(TZ)
+    today = now.date()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+    query_start = min(week_start, month_start)
+    query_start_utc = datetime.combine(query_start, datetime.min.time(), TZ).astimezone(timezone.utc)
+    sessions = db.scalars(select(TimerSession).where(
+        TimerSession.user_id == user_id,
+        TimerSession.ended_at >= query_start_utc,
+        TimerSession.status.in_(["completed", "stopped"]),
+    )).all()
+    daily_seconds: dict = {}
+    for session in sessions:
+        ended_at = session.ended_at
+        if ended_at is None:
+            continue
+        if ended_at.tzinfo is None:
+            ended_at = ended_at.replace(tzinfo=timezone.utc)
+        day = ended_at.astimezone(TZ).date()
+        daily_seconds[day] = daily_seconds.get(day, 0) + session.worked_seconds
+
+    weekday_labels = ["月", "火", "水", "木", "金", "土", "日"]
+    week = []
+    week_max = max((daily_seconds.get(week_start + timedelta(days=i), 0) for i in range(7)), default=0)
+    for index, label in enumerate(weekday_labels):
+        day = week_start + timedelta(days=index)
+        seconds = daily_seconds.get(day, 0)
+        week.append({
+            "label": label,
+            "date": day.day,
+            "minutes": seconds // 60,
+            "percent": round(seconds / week_max * 100) if week_max else 0,
+            "is_today": day == today,
+        })
+
+    month_weeks = []
+    for dates in calendar.Calendar(firstweekday=0).monthdatescalendar(today.year, today.month):
+        month_weeks.append([{
+            "day": day.day,
+            "minutes": daily_seconds.get(day, 0) // 60,
+            "in_month": day.month == today.month,
+            "is_today": day == today,
+        } for day in dates])
+
+    month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == today.month and day.year == today.year)
+    return {
+        "today_minutes": daily_seconds.get(today, 0) // 60,
+        "week": week,
+        "week_minutes": sum(item["minutes"] for item in week),
+        "month_label": f"{today.year}年{today.month}月",
+        "month_minutes": month_seconds // 60,
+        "month_weeks": month_weeks,
+    }
+
+
 @app.exception_handler(401)
 async def unauthorized(_: Request, __: HTTPException):
     return redirect("/login")
@@ -148,7 +209,7 @@ def timer_page(request: Request, user: User = Depends(current_user), db: Session
             "user": user,
             "state": state,
             "default_seconds": last_planned_seconds(db, user.id, ALLOW_SHORT_TIMERS),
-            "totals": totals(db, user.id),
+            "activity": activity_summary(db, user.id),
             "allow_short_timers": ALLOW_SHORT_TIMERS,
         },
     )
