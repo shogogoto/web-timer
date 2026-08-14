@@ -147,7 +147,12 @@ def set_timer(planned_seconds: int = Form(), user: User = Depends(current_user),
     minimum_seconds = 1 if ALLOW_SHORT_TIMERS else 300
     if planned_seconds < minimum_seconds or planned_seconds > 4 * 3600:
         raise HTTPException(422, "設定できる時間の範囲外です")
-    session = TimerSession(user_id=user.id, planned_seconds=planned_seconds, status="ready")
+    session = TimerSession(
+        user_id=user.id,
+        planned_seconds=planned_seconds,
+        started_at=datetime.now(timezone.utc),
+        status="running",
+    )
     db.add(session)
     db.commit()
     return {"id": session.id, "status": session.status, "remaining": planned_seconds}
