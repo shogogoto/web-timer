@@ -141,9 +141,14 @@ input {
 
 .admin-shell { max-width: 56rem; }
 .admin-shell .card { margin-bottom: 1.5rem; }
+.notice { padding: .8rem 1rem; color: var(--primary-text); background: var(--primary); border-radius: .65rem; }
+.table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border); }
 .inline-form { display: flex; flex-wrap: wrap; gap: .75rem; }
+.password-reset summary { color: var(--primary); cursor: pointer; white-space: nowrap; }
+.password-reset form { min-width: 18rem; display: flex; gap: .5rem; margin-top: .6rem; }
+.password-reset input { min-width: 0; }
 
 @media (prefers-color-scheme: dark) {
   button:hover { filter: brightness(1.12); }

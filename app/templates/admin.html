@@ -2,10 +2,14 @@
 {% block body %}
 <main class="admin-shell">
   <header><h1>利用者の集中時間</h1><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
+  {% if request.query_params.get('password_reset') %}<p class="notice" role="status">パスワードを再設定しました。</p>{% endif %}
   <section class="card">
-    <table><thead><tr><th>利用者</th><th>今日</th><th>今週</th></tr></thead><tbody>
-      {% for row in rows %}<tr><td>{{ row.user.username }}</td><td>{{ row.today_seconds // 60 }}分 {{ row.today_seconds % 60 }}秒</td><td>{{ row.week_seconds // 60 }}分 {{ row.week_seconds % 60 }}秒</td></tr>{% else %}<tr><td colspan="3">利用者はまだいません</td></tr>{% endfor %}
+    <div class="table-scroll"><table><thead><tr><th>利用者</th><th>今日</th><th>今週</th><th>パスワード</th></tr></thead><tbody>
+      {% for row in rows %}<tr><td>{{ row.user.username }}</td><td>{{ row.today_seconds // 60 }}分 {{ row.today_seconds % 60 }}秒</td><td>{{ row.week_seconds // 60 }}分 {{ row.week_seconds % 60 }}秒</td><td>
+        <details class="password-reset"><summary>再設定</summary><form method="post" action="/admin/users/{{ row.user.id }}/password"><input type="password" name="password" placeholder="新しいパスワード" autocomplete="new-password" minlength="8" required><button>設定</button></form></details>
+      </td></tr>{% else %}<tr><td colspan="4">利用者はまだいません</td></tr>{% endfor %}
     </tbody></table>
+    </div>
   </section>
   <section class="card"><h2>利用者を追加</h2><form method="post" action="/admin/users" class="inline-form"><input name="username" placeholder="ユーザー名" required><input type="password" name="password" placeholder="パスワード（8文字以上）" required minlength="8"><button>作成</button></form></section>
 </main>

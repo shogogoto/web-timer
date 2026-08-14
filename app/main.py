@@ -417,6 +417,23 @@ def create_account(username: str = Form(), password: str = Form(), _: User = Dep
     return redirect("/admin")
 
 
+@app.post("/admin/users/{user_id}/password")
+def reset_account_password(
+    user_id: int,
+    password: str = Form(),
+    _: User = Depends(admin_user),
+    db: Session = Depends(get_db),
+):
+    account = db.get(User, user_id)
+    if not account or account.role == "admin":
+        raise HTTPException(404, "利用者が見つかりません")
+    if len(password) < 8:
+        raise HTTPException(422, "パスワードは8文字以上が必要です")
+    account.password_hash = hash_password(password)
+    db.commit()
+    return redirect("/admin?password_reset=1")
+
+
 @app.get("/health")
 def health():
     return JSONResponse({"status": "ok"})
