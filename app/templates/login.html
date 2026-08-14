@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}ログイン | Focus Timer{% endblock %}
+{% block body %}
+<main class="card login">
+  <h1>Focus Timer</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" class="stack">
+    <label>ユーザー名<input name="username" autocomplete="username" required autofocus></label>
+    <label>パスワード<input type="password" name="password" autocomplete="current-password" required></label>
+    <button>ログイン</button>
+  </form>
+</main>
+{% endblock %}

@@ -1,0 +1,7 @@
+.env
+.venv/
+data/*.db
+data/vapid_private.pem
+__pycache__/
+.pytest_cache/
+*.pyc

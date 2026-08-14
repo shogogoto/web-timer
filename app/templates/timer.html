@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+<main x-data='studyTimer({{ state | tojson }})' x-init="init()" class="timer-shell">
+  <header><span>{{ user.username }}</span><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
+  <section class="timer-card">
+    <div class="clock" x-text="display"></div>
+    <template x-if="phase === 'select'">
+      <div class="controls">
+        <div class="presets">
+          {% if allow_short_timers %}<button @click="setDebugSecond">1秒（デバッグ）</button>{% endif %}
+          <template x-for="m in [15,25,40,60]"><button @click="minutes=m" x-text="m+'分'"></button></template>
+        </div>
+        <div class="adjust"><button @click="minutes=Math.max(5,minutes-5)">−5</button><span x-text="minutes+'分'"></span><button @click="minutes=Math.min(240,minutes+5)">＋5</button></div>
+        <button class="primary" @click="setTimer">タイマーをセット</button>
+      </div>
+    </template>
+    <template x-if="phase === 'ready'"><button class="primary big" @click="start">開始</button></template>
+    <template x-if="phase === 'running'"><div class="stack"><button class="primary big" @click="pause">一時停止</button><button class="danger" @click="finish(false)">終了</button></div></template>
+    <template x-if="phase === 'paused'"><div class="stack"><button class="primary big" @click="resume">再開</button><button class="danger" @click="finish(false)">終了</button></div></template>
+    <template x-if="phase === 'finished'"><div class="finished"><strong>🔔 時間になりました</strong><span>記録を保存しています</span></div></template>
+    <p class="error" x-text="error"></p>
+  </section>
+  <section class="totals"><div><strong>{{ totals.today }}</strong><span>今日（分）</span></div><div><strong>{{ totals.week }}</strong><span>今週（分）</span></div></section>
+</main>
+<script src="/static/app.js"></script>
+{% endblock %}

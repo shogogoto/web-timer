@@ -1,0 +1,16 @@
+services:
+  timer:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      TZ: Asia/Tokyo
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORDを.envに設定してください}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRETを.envに設定してください}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOW_SHORT_TIMERS: ${ALLOW_SHORT_TIMERS:-false}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+    volumes:
+      - ./data:/app/data
