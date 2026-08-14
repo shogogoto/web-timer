@@ -57,14 +57,17 @@
       <div class="day-detail">
         <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span x-text="formatDuration(selectedActivity.seconds)"></span></div>
         <template x-if="selectedActivity.sessions.length">
-          <div class="session-chart">
-            <template x-for="(session,index) in selectedActivity.sessions" :key="index">
-              <div class="session-column" :title="session.time+' '+formatDuration(session.seconds)">
-                <span x-text="formatDuration(session.seconds)"></span>
-                <div class="session-track"><div class="session-bar" :class="session.status" :style="`height:${session.percent}%`"></div></div>
-                <small x-text="session.time"></small>
-              </div>
-            </template>
+          <div class="timeline-chart">
+            <div class="timeline-plot">
+              <template x-for="tick in selectedActivity.ticks" :key="tick.label">
+                <div class="timeline-gridline" :style="`left:${tick.left}%`"><span x-text="tick.label"></span></div>
+              </template>
+              <template x-for="(session,index) in selectedActivity.sessions" :key="index">
+                <button type="button" class="timeline-bar" :class="session.status" :style="`left:${session.left}%;height:${session.height}%`" :title="session.time+' / '+formatDuration(session.seconds)">
+                  <span x-text="formatDuration(session.seconds)"></span>
+                </button>
+              </template>
+            </div>
           </div>
         </template>
         <template x-if="!selectedActivity.sessions.length"><p class="empty-activity">この日の記録はありません</p></template>

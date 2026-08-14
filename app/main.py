@@ -1,5 +1,6 @@
 import asyncio
 import calendar
+import math
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -150,6 +151,7 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
         detail[session.status] += 1
         detail["sessions"].append({
             "time": local_start.strftime("%H:%M"),
+            "start_minute": local_start.hour * 60 + local_start.minute,
             "seconds": session.worked_seconds,
             "status": session.status,
         })
@@ -186,8 +188,23 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
     month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     for detail in daily_details.values():
         maximum = max((session["seconds"] for session in detail["sessions"]), default=0)
+        earliest = min((session["start_minute"] for session in detail["sessions"]), default=0)
+        latest = max((session["start_minute"] + session["seconds"] / 60 for session in detail["sessions"]), default=0)
+        timeline_start = math.floor(earliest / 120) * 120
+        timeline_end = math.ceil(latest / 120) * 120
+        if timeline_end - timeline_start < 360:
+            timeline_end = timeline_start + 360
+        if timeline_end > 1440:
+            timeline_start = max(0, 1440 - (timeline_end - timeline_start))
+            timeline_end = 1440
+        span = max(1, timeline_end - timeline_start)
+        detail["ticks"] = [{
+            "label": f"{minute // 60}:00",
+            "left": round((minute - timeline_start) / span * 100, 2),
+        } for minute in range(timeline_start, timeline_end + 1, 120)]
         for session in detail["sessions"]:
-            session["percent"] = round(session["seconds"] / maximum * 100) if maximum else 0
+            session["left"] = round((session["start_minute"] - timeline_start) / span * 100, 2)
+            session["height"] = round(session["seconds"] / maximum * 100) if maximum else 0
         detail["sessions"].sort(key=lambda session: session["time"])
     return {
         "today_minutes": daily_seconds.get(today, 0) // 60,

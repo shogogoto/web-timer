@@ -34,6 +34,8 @@ def test_activity_is_grouped_by_day_for_one_user():
     assert summary["month_completed"] == 1
     assert summary["month_stopped"] == 1
     assert summary["details"]["2026-08-14"]["seconds"] == 1800
+    assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "10:00"
+    assert summary["details"]["2026-08-14"]["sessions"][0]["left"] >= 0
 
 
 def test_activity_can_display_another_month():
