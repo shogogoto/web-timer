@@ -1,6 +1,5 @@
 import asyncio
 import calendar
-import math
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -195,23 +194,13 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
             bucket[session["status"]] += 1
         hourly_items = list(hourly.values())
         maximum = max((bucket["seconds"] for bucket in hourly_items), default=0)
-        earliest = min((bucket["hour"] * 60 for bucket in hourly_items), default=0)
-        latest = max(((bucket["hour"] + 1) * 60 for bucket in hourly_items), default=0)
-        timeline_start = math.floor(earliest / 120) * 120
-        timeline_end = math.ceil(latest / 120) * 120
-        if timeline_end - timeline_start < 360:
-            timeline_end = timeline_start + 360
-        if timeline_end > 1440:
-            timeline_start = max(0, 1440 - (timeline_end - timeline_start))
-            timeline_end = 1440
-        span = max(1, timeline_end - timeline_start)
         detail["ticks"] = [{
-            "label": f"{minute // 60}:00",
-            "left": round((minute - timeline_start) / span * 100, 2),
-        } for minute in range(timeline_start, timeline_end + 1, 120)]
+            "label": f"{hour + 1:02d}",
+            "left": round((hour + 0.5) / 24 * 100, 2),
+        } for hour in range(24)]
         for bucket in hourly_items:
-            bucket["label"] = f"{bucket['hour']}:00"
-            bucket["left"] = round((bucket["hour"] * 60 + 30 - timeline_start) / span * 100, 2)
+            bucket["label"] = f"{bucket['hour']:02d}:00–{bucket['hour']:02d}:59"
+            bucket["left"] = round((bucket["hour"] + 0.5) / 24 * 100, 2)
             bucket["height"] = round(bucket["seconds"] / maximum * 100) if maximum else 0
             bucket["only_stopped"] = bucket["completed"] == 0
         hourly_items.sort(key=lambda bucket: bucket["hour"])

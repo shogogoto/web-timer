@@ -126,11 +126,11 @@ input {
 .day-detail { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
 .detail-heading { display: flex; justify-content: space-between; align-items: baseline; }
 .detail-heading span { color: var(--muted); }
-.timeline-chart { margin: 1rem 1.5rem 0; padding-top: 1.4rem; }
-.timeline-plot { position: relative; height: 9rem; border-bottom: 1px solid var(--border); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), var(--border) 25%); }
-.timeline-gridline { position: absolute; inset: 0 auto 0; width: 1px; background: var(--border); }
-.timeline-gridline span { position: absolute; top: 100%; left: 0; padding-top: .4rem; color: var(--muted); font-size: .7rem; white-space: nowrap; transform: translateX(-50%); }
-.timeline-bar { position: absolute; bottom: 0; width: clamp(2rem, 7vw, 3.5rem); min-height: 5px; padding: 0; color: var(--surface); background: var(--text); border-radius: 1rem 1rem .4rem .4rem; transform: translateX(-50%); }
+.timeline-chart { overflow-x: auto; margin: 1rem 0 0; padding: 1.4rem 0 1.5rem; }
+.timeline-plot { position: relative; min-width: 42rem; height: 9rem; border-bottom: 1px solid var(--border); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), var(--border) 25%); }
+.timeline-gridline { position: absolute; inset: 0 auto 0; width: 0; }
+.timeline-gridline span { position: absolute; top: 100%; left: 0; padding-top: .45rem; color: var(--muted); font-size: .62rem; white-space: nowrap; transform: translateX(-50%); }
+.timeline-bar { position: absolute; bottom: 0; width: calc(100% / 24 - 4px); min-height: 5px; padding: 0; color: var(--surface); background: var(--text); border-radius: .65rem .65rem .25rem .25rem; transform: translateX(-50%); }
 .timeline-bar span { position: absolute; bottom: calc(100% + .3rem); left: 50%; color: var(--muted); font-size: .65rem; white-space: nowrap; transform: translateX(-50%); }
 .timeline-bar.stopped { background: var(--muted); opacity: .55; }
 .empty-activity { height: 8rem; display: grid; place-content: center; margin: 0; color: var(--muted); font-size: .85rem; }
