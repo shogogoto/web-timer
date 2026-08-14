@@ -3,14 +3,19 @@ self.addEventListener('push', event => {
   if (event.data) {
     try { message = {...message, ...event.data.json()}; } catch (_) {}
   }
-  event.waitUntil(self.registration.showNotification(message.title, {
-    body: message.body,
-    data: {url: message.url},
-    tag: 'timer-finished',
-    renotify: true,
-    requireInteraction: true,
-    vibrate: [200, 100, 200]
-  }));
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(message.title, {
+      body: message.body,
+      data: {url: message.url},
+      tag: 'timer-finished',
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
+    }),
+    clients.matchAll({type: 'window', includeUncontrolled: true}).then(windows => {
+      windows.forEach(client => client.postMessage({type: 'timer-finished'}));
+    })
+  ]));
 });
 
 self.addEventListener('notificationclick', event => {
