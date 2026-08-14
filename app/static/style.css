@@ -111,10 +111,27 @@ input {
 .calendar { display: grid; grid-template-columns: repeat(7, 1fr); }
 .weekdays { margin-top: 1rem; color: var(--muted); font-size: .75rem; text-align: center; }
 .month-grid { gap: .35rem; margin-top: .4rem; }
-.calendar-day { min-height: 4rem; padding: .45rem; display: grid; align-content: space-between; border: 1px solid var(--border); border-radius: .5rem; font-size: .8rem; }
-.calendar-day strong { color: var(--primary); font-size: .75rem; text-align: right; }
+.calendar-day { min-height: 4.5rem; padding: .35rem; display: grid; place-items: center; align-content: space-between; color: var(--muted); background: transparent; border: 0; border-radius: .5rem; font-size: .75rem; }
+.calendar-day:hover:not(:disabled) { background: var(--control); filter: none; }
+.day-number { justify-self: start; }
+.activity-bubble { display: block; min-width: 7px; min-height: 7px; background: var(--text); border-radius: 50%; opacity: .92; }
 .calendar-day.outside { opacity: .22; }
-.calendar-day.current { border: 2px solid var(--primary); padding: calc(.45rem - 1px); }
+.calendar-day.current .day-number { color: var(--primary); font-weight: 700; }
+.calendar-day.current .activity-bubble { outline: 2px solid var(--primary); outline-offset: 4px; }
+.calendar-day.selected { background: var(--control); }
+.day-detail { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.detail-heading { display: flex; justify-content: space-between; align-items: baseline; }
+.detail-heading span { color: var(--muted); }
+.session-chart { height: 10rem; display: flex; align-items: stretch; gap: .65rem; margin-top: 1rem; overflow-x: auto; }
+.session-column { min-width: 3.5rem; flex: 1; display: grid; grid-template-rows: 1.2rem 1fr 1.2rem; gap: .3rem; color: var(--muted); text-align: center; font-size: .7rem; }
+.session-track { position: relative; overflow: hidden; background: linear-gradient(to top, var(--border) 1px, transparent 1px); background-size: 100% 25%; border-bottom: 1px solid var(--border); }
+.session-bar { position: absolute; inset: auto 15% 0; min-height: 4px; background: var(--text); border-radius: 1rem 1rem .35rem .35rem; }
+.session-bar.stopped { background: var(--muted); opacity: .55; }
+.empty-activity { height: 8rem; display: grid; place-content: center; margin: 0; color: var(--muted); font-size: .85rem; }
+.activity-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
+.activity-stats div { display: grid; gap: .25rem; text-align: center; }
+.activity-stats span { color: var(--muted); font-size: .8rem; }
+.activity-stats strong { font-size: 1.2rem; }
 
 .admin-shell { max-width: 56rem; }
 .admin-shell .card { margin-bottom: 1.5rem; }
@@ -133,8 +150,7 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   .activity-grid { grid-template-columns: 1fr; }
   .today-summary { min-height: 7rem; }
   .monthly-summary { grid-column: auto; padding: 1rem; }
-  .calendar-day { min-height: 3.25rem; padding: .3rem; }
-  .calendar-day.current { padding: calc(.3rem - 1px); }
-  .calendar-day strong { font-size: .65rem; }
+  .calendar-day { min-height: 3.5rem; padding: .25rem; }
+  .activity-stats { grid-template-columns: 1fr; gap: .75rem; }
   .login { margin: 8vh 1rem; }
 }

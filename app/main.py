@@ -127,6 +127,7 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> 
         TimerSession.status.in_(["completed", "stopped"]),
     )).all()
     daily_seconds: dict = {}
+    daily_details: dict = {}
     for session in sessions:
         ended_at = session.ended_at
         if ended_at is None:
@@ -135,6 +136,18 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> 
             ended_at = ended_at.replace(tzinfo=timezone.utc)
         day = ended_at.astimezone(TZ).date()
         daily_seconds[day] = daily_seconds.get(day, 0) + session.worked_seconds
+        started_at = session.started_at or session.ended_at
+        if started_at is not None and started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        local_start = started_at.astimezone(TZ) if started_at is not None else ended_at.astimezone(TZ)
+        detail = daily_details.setdefault(day.isoformat(), {"seconds": 0, "completed": 0, "stopped": 0, "sessions": []})
+        detail["seconds"] += session.worked_seconds
+        detail[session.status] += 1
+        detail["sessions"].append({
+            "time": local_start.strftime("%H:%M"),
+            "seconds": session.worked_seconds,
+            "status": session.status,
+        })
 
     weekday_labels = ["月", "火", "水", "木", "金", "土", "日"]
     week = []
@@ -150,23 +163,37 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> 
             "is_today": day == today,
         })
 
+    month_max = max((seconds for day, seconds in daily_seconds.items() if day.month == today.month and day.year == today.year), default=0)
     month_weeks = []
     for dates in calendar.Calendar(firstweekday=0).monthdatescalendar(today.year, today.month):
         month_weeks.append([{
             "day": day.day,
+            "date": day.isoformat(),
             "minutes": daily_seconds.get(day, 0) // 60,
+            "bubble_size": round(8 + (daily_seconds.get(day, 0) / month_max * 28)) if daily_seconds.get(day, 0) and month_max else 7,
             "in_month": day.month == today.month,
             "is_today": day == today,
         } for day in dates])
 
     month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == today.month and day.year == today.year)
+    month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(f"{today.year:04d}-{today.month:02d}-"))
+    month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(f"{today.year:04d}-{today.month:02d}-"))
+    for detail in daily_details.values():
+        maximum = max((session["seconds"] for session in detail["sessions"]), default=0)
+        for session in detail["sessions"]:
+            session["percent"] = round(session["seconds"] / maximum * 100) if maximum else 0
+        detail["sessions"].sort(key=lambda session: session["time"])
     return {
         "today_minutes": daily_seconds.get(today, 0) // 60,
         "week": week,
         "week_minutes": sum(item["minutes"] for item in week),
         "month_label": f"{today.year}年{today.month}月",
         "month_minutes": month_seconds // 60,
+        "month_completed": month_completed,
+        "month_stopped": month_stopped,
         "month_weeks": month_weeks,
+        "details": daily_details,
+        "today_date": today.isoformat(),
     }
 
 

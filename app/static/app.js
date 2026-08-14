@@ -1,11 +1,15 @@
-function studyTimer(initial, defaultSeconds) {
+function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
   return {
     selectedSeconds: initial ? initial.planned : defaultSeconds,
     remaining: initial ? initial.remaining : defaultSeconds,
     phase: initial ? initial.status : 'select',
     sessionId: initial ? initial.id : null,
     error: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false,
+    activityDetails, selectedDate: todayDate,
     get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
+    get selectedActivity() { return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[]} },
+    get selectedDateLabel() { const [year,month,day]=this.selectedDate.split('-').map(Number); return `${month}月${day}日` },
+    formatDuration(seconds) { if(seconds<60)return `${seconds}秒`; const minutes=Math.floor(seconds/60), rest=seconds%60; return rest ? `${minutes}分${rest}秒` : `${minutes}分` },
     init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
     async request(path, body) {
       const options = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}};

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body %}
-<main x-data='studyTimer({{ state | tojson }}, {{ default_seconds }})' x-init="init()" class="timer-shell">
+<main x-data='studyTimer({{ state | tojson }}, {{ default_seconds }}, {{ activity.details | tojson }}, {{ activity.today_date | tojson }})' x-init="init()" class="timer-shell">
   <header><span>{{ user.username }}</span><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
   <section class="timer-card">
     <div class="clock" x-text="display"></div>
@@ -42,12 +42,32 @@
     <article class="summary-card monthly-summary">
       <div class="summary-heading"><h2>{{ activity.month_label }}</h2><strong>{{ activity.month_minutes }}分</strong></div>
       <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
-      <div class="calendar month-grid">
+      <div class="calendar month-grid bubble-calendar">
         {% for week in activity.month_weeks %}{% for day in week %}
-        <div class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}">
-          <span>{{ day.day }}</span>{% if day.in_month and day.minutes %}<strong>{{ day.minutes }}分</strong>{% endif %}
-        </div>
+        <button type="button" @click="selectedDate='{{ day.date }}'" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.minutes }}分">
+          <span class="day-number">{{ day.day }}</span><span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>
+        </button>
         {% endfor %}{% endfor %}
+      </div>
+      <div class="day-detail">
+        <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span x-text="formatDuration(selectedActivity.seconds)"></span></div>
+        <template x-if="selectedActivity.sessions.length">
+          <div class="session-chart">
+            <template x-for="(session,index) in selectedActivity.sessions" :key="index">
+              <div class="session-column" :title="session.time+' '+formatDuration(session.seconds)">
+                <span x-text="formatDuration(session.seconds)"></span>
+                <div class="session-track"><div class="session-bar" :class="session.status" :style="`height:${session.percent}%`"></div></div>
+                <small x-text="session.time"></small>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="!selectedActivity.sessions.length"><p class="empty-activity">この日の記録はありません</p></template>
+      </div>
+      <div class="activity-stats">
+        <div><span>今月の集中時間</span><strong>{{ activity.month_minutes }}分</strong></div>
+        <div><span>完了</span><strong>{{ activity.month_completed }}回</strong></div>
+        <div><span>途中終了</span><strong>{{ activity.month_stopped }}回</strong></div>
       </div>
     </article>
   </section>
