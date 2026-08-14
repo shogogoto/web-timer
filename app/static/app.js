@@ -1,7 +1,7 @@
-function studyTimer(initial) {
+function studyTimer(initial, defaultMinutes) {
   return {
-    minutes: initial ? initial.planned / 60 : 40,
-    remaining: initial ? initial.remaining : 2400,
+    minutes: initial ? initial.planned / 60 : defaultMinutes,
+    remaining: initial ? initial.remaining : defaultMinutes * 60,
     phase: initial ? initial.status : 'select',
     sessionId: initial ? initial.id : null,
     error: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false,

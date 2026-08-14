@@ -79,6 +79,16 @@ def active_session(db: Session, user_id: int) -> TimerSession | None:
     ).first()
 
 
+def last_planned_minutes(db: Session, user_id: int) -> int:
+    planned_seconds = db.scalar(
+        select(TimerSession.planned_seconds)
+        .where(TimerSession.user_id == user_id, TimerSession.planned_seconds >= 300)
+        .order_by(TimerSession.id.desc())
+        .limit(1)
+    )
+    return planned_seconds // 60 if planned_seconds else 40
+
+
 def totals(db: Session, user_id: int) -> dict[str, int]:
     now = datetime.now(TZ)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
@@ -136,7 +146,13 @@ def timer_page(request: Request, user: User = Depends(current_user), db: Session
     return templates.TemplateResponse(
         request,
         "timer.html",
-        {"user": user, "state": state, "totals": totals(db, user.id), "allow_short_timers": ALLOW_SHORT_TIMERS},
+        {
+            "user": user,
+            "state": state,
+            "default_minutes": last_planned_minutes(db, user.id),
+            "totals": totals(db, user.id),
+            "allow_short_timers": ALLOW_SHORT_TIMERS,
+        },
     )
 
 

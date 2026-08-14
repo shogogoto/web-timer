@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body %}
-<main x-data='studyTimer({{ state | tojson }})' x-init="init()" class="timer-shell">
+<main x-data='studyTimer({{ state | tojson }}, {{ default_minutes }})' x-init="init()" class="timer-shell">
   <header><span>{{ user.username }}</span><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
   <section class="timer-card">
     <div class="clock" x-text="display"></div>
