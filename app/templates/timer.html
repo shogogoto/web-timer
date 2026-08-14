@@ -13,7 +13,7 @@
           {% endif %}
           <template x-for="m in [5,10,15,30,45,60]"><button @click="selectedSeconds=m*60" x-text="m+'分'"></button></template>
         </div>
-        <div class="adjust"><button @click="selectedSeconds=Math.max(300,selectedSeconds-300)">−5</button><span x-text="selectionLabel"></span><button @click="selectedSeconds=Math.min(14400,selectedSeconds+300)">＋5</button></div>
+        <div class="adjust"><button @click="selectedSeconds=Math.max(300,selectedSeconds-300)">−5分</button><button @click="selectedSeconds=Math.min(14400,selectedSeconds+300)">＋5分</button></div>
         <button class="primary" @click="setTimer">タイマーを開始</button>
       </div>
     </template>

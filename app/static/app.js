@@ -6,7 +6,6 @@ function studyTimer(initial, defaultSeconds) {
     sessionId: initial ? initial.id : null,
     error: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false,
     get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
-    get selectionLabel() { return this.selectedSeconds < 60 ? `${this.selectedSeconds}秒` : `${this.selectedSeconds/60}分` },
     init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
     async request(path, body) {
       const options = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}};
