@@ -12,13 +12,17 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     formatDuration(seconds) { if(seconds<60)return `${seconds}秒`; const minutes=Math.floor(seconds/60), rest=seconds%60; return rest ? `${minutes}分${rest}秒` : `${minutes}分` },
     async copyReport(text) {
       try {
-        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-        else {
-          const area=document.createElement('textarea'); area.value=text; area.style.position='fixed'; area.style.opacity='0';
-          document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove();
-        }
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+        await navigator.clipboard.writeText(text);
         this.copyStatus='コピーしました'; setTimeout(()=>{this.copyStatus=''},2500);
-      } catch (_) { this.copyStatus='コピーできませんでした'; }
+      } catch (_) {
+        const area=document.createElement('textarea'); area.value=text; area.setAttribute('readonly','');
+        area.style.position='fixed'; area.style.left='-9999px'; document.body.appendChild(area);
+        area.focus(); area.select();
+        const copied=document.execCommand('copy'); area.remove();
+        this.copyStatus=copied ? 'コピーしました' : 'コピーできませんでした';
+        if(copied)setTimeout(()=>{this.copyStatus=''},2500);
+      }
     },
     init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
     async request(path, body) {
