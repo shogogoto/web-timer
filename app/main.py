@@ -110,7 +110,7 @@ def totals(db: Session, user_id: int) -> dict[str, int]:
     }
 
 
-def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> dict:
+def activity_summary(db: Session, user_id: int, now: datetime | None = None, target_month=None) -> dict:
     now = now or datetime.now(TZ)
     if now.tzinfo is None:
         now = now.replace(tzinfo=TZ)
@@ -118,12 +118,17 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> 
         now = now.astimezone(TZ)
     today = now.date()
     week_start = today - timedelta(days=today.weekday())
-    month_start = today.replace(day=1)
+    month_start = (target_month or today).replace(day=1)
+    next_month = (month_start + timedelta(days=32)).replace(day=1)
+    previous_month = (month_start - timedelta(days=1)).replace(day=1)
     query_start = min(week_start, month_start)
+    query_end = max(week_start + timedelta(days=7), next_month)
     query_start_utc = datetime.combine(query_start, datetime.min.time(), TZ).astimezone(timezone.utc)
+    query_end_utc = datetime.combine(query_end, datetime.min.time(), TZ).astimezone(timezone.utc)
     sessions = db.scalars(select(TimerSession).where(
         TimerSession.user_id == user_id,
         TimerSession.ended_at >= query_start_utc,
+        TimerSession.ended_at < query_end_utc,
         TimerSession.status.in_(["completed", "stopped"]),
     )).all()
     daily_seconds: dict = {}
@@ -163,21 +168,22 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> 
             "is_today": day == today,
         })
 
-    month_max = max((seconds for day, seconds in daily_seconds.items() if day.month == today.month and day.year == today.year), default=0)
+    month_max = max((seconds for day, seconds in daily_seconds.items() if day.month == month_start.month and day.year == month_start.year), default=0)
     month_weeks = []
-    for dates in calendar.Calendar(firstweekday=0).monthdatescalendar(today.year, today.month):
+    for dates in calendar.Calendar(firstweekday=0).monthdatescalendar(month_start.year, month_start.month):
         month_weeks.append([{
             "day": day.day,
             "date": day.isoformat(),
             "minutes": daily_seconds.get(day, 0) // 60,
             "bubble_size": round(8 + (daily_seconds.get(day, 0) / month_max * 28)) if daily_seconds.get(day, 0) and month_max else 7,
-            "in_month": day.month == today.month,
+            "in_month": day.month == month_start.month,
             "is_today": day == today,
         } for day in dates])
 
-    month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == today.month and day.year == today.year)
-    month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(f"{today.year:04d}-{today.month:02d}-"))
-    month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(f"{today.year:04d}-{today.month:02d}-"))
+    month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == month_start.month and day.year == month_start.year)
+    month_prefix = f"{month_start.year:04d}-{month_start.month:02d}-"
+    month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(month_prefix))
+    month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     for detail in daily_details.values():
         maximum = max((session["seconds"] for session in detail["sessions"]), default=0)
         for session in detail["sessions"]:
@@ -187,13 +193,15 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None) -> 
         "today_minutes": daily_seconds.get(today, 0) // 60,
         "week": week,
         "week_minutes": sum(item["minutes"] for item in week),
-        "month_label": f"{today.year}年{today.month}月",
+        "month_label": f"{month_start.year}年{month_start.month}月",
+        "previous_month": previous_month.strftime("%Y-%m"),
+        "next_month": next_month.strftime("%Y-%m"),
         "month_minutes": month_seconds // 60,
         "month_completed": month_completed,
         "month_stopped": month_stopped,
         "month_weeks": month_weeks,
         "details": daily_details,
-        "today_date": today.isoformat(),
+        "selected_date": (today if today.year == month_start.year and today.month == month_start.month else month_start).isoformat(),
     }
 
 
@@ -224,11 +232,17 @@ def logout(request: Request):
 
 
 @app.get("/", response_class=HTMLResponse)
-def timer_page(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def timer_page(request: Request, month: str | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     session = active_session(db, user.id)
     state = None
     if session:
         state = {"id": session.id, "status": session.status, "planned": session.planned_seconds, "remaining": remaining_seconds(session)}
+    target_month = None
+    if month:
+        try:
+            target_month = datetime.strptime(month, "%Y-%m").date()
+        except ValueError:
+            target_month = None
     return templates.TemplateResponse(
         request,
         "timer.html",
@@ -236,7 +250,7 @@ def timer_page(request: Request, user: User = Depends(current_user), db: Session
             "user": user,
             "state": state,
             "default_seconds": last_planned_seconds(db, user.id, ALLOW_SHORT_TIMERS),
-            "activity": activity_summary(db, user.id),
+            "activity": activity_summary(db, user.id, target_month=target_month),
             "allow_short_timers": ALLOW_SHORT_TIMERS,
         },
     )

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body %}
-<main x-data='studyTimer({{ state | tojson }}, {{ default_seconds }}, {{ activity.details | tojson }}, {{ activity.today_date | tojson }})' x-init="init()" class="timer-shell">
+<main x-data='studyTimer({{ state | tojson }}, {{ default_seconds }}, {{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' x-init="init()" class="timer-shell">
   <header><span>{{ user.username }}</span><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
   <section class="timer-card">
     <div class="clock" x-text="display"></div>
@@ -40,7 +40,12 @@
       </div>
     </article>
     <article class="summary-card monthly-summary">
-      <div class="summary-heading"><h2>{{ activity.month_label }}</h2><strong>{{ activity.month_minutes }}分</strong></div>
+      <div class="summary-heading month-heading">
+        <a href="/?month={{ activity.previous_month }}" aria-label="前月">‹</a>
+        <h2>{{ activity.month_label }}</h2>
+        <strong>{{ activity.month_minutes }}分</strong>
+        <a href="/?month={{ activity.next_month }}" aria-label="翌月">›</a>
+      </div>
       <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
       <div class="calendar month-grid bubble-calendar">
         {% for week in activity.month_weeks %}{% for day in week %}
