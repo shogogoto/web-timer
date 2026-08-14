@@ -7,7 +7,10 @@
     <template x-if="phase === 'select'">
       <div class="controls">
         <div class="presets">
-          {% if allow_short_timers %}<button @click="setDebugSecond">1秒（デバッグ）</button>{% endif %}
+          {% if allow_short_timers %}
+          <button @click="setDebugTimer(1)">1秒（デバッグ）</button>
+          <button @click="setDebugTimer(5)">5秒（デバッグ）</button>
+          {% endif %}
           <template x-for="m in [15,25,40,60]"><button @click="minutes=m" x-text="m+'分'"></button></template>
         </div>
         <div class="adjust"><button @click="minutes=Math.max(5,minutes-5)">−5</button><span x-text="minutes+'分'"></span><button @click="minutes=Math.min(240,minutes+5)">＋5</button></div>

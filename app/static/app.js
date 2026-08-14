@@ -15,7 +15,7 @@ function studyTimer(initial) {
       return response.json();
     },
     unlockAudio() { if (!this.audioContext) this.audioContext = new (window.AudioContext || window.webkitAudioContext)(); if(this.audioContext.state==='suspended')this.audioContext.resume(); },
-    async setDebugSecond() { try { this.unlockAudio(); const r=await this.request('/api/sessions',{planned_seconds:1}); this.sessionId=r.id; this.remaining=r.remaining; this.phase='ready'; this.askNotification(); } catch(e){this.error=e.message} },
+    async setDebugTimer(seconds) { try { this.unlockAudio(); const r=await this.request('/api/sessions',{planned_seconds:seconds}); this.sessionId=r.id; this.remaining=r.remaining; this.phase='ready'; this.askNotification(); } catch(e){this.error=e.message} },
     async setTimer() { try { this.unlockAudio(); const r=await this.request('/api/sessions',{planned_seconds:this.minutes*60}); this.sessionId=r.id; this.remaining=r.remaining; this.phase='ready'; this.askNotification(); } catch(e){this.error=e.message} },
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); if(this.remaining===0)this.finish(true)},250); },
