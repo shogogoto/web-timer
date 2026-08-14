@@ -194,13 +194,26 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
             bucket[session["status"]] += 1
         hourly_items = list(hourly.values())
         maximum = max((bucket["seconds"] for bucket in hourly_items), default=0)
+        first_hour = min((bucket["hour"] for bucket in hourly_items), default=0)
+        last_hour = max((bucket["hour"] for bucket in hourly_items), default=0)
+        axis_start = max(0, first_hour - 1)
+        axis_end = min(24, last_hour + 2)
+        missing_hours = max(0, 6 - (axis_end - axis_start))
+        left_extension = min(axis_start, (missing_hours + 1) // 2)
+        axis_start -= left_extension
+        missing_hours -= left_extension
+        right_extension = min(24 - axis_end, missing_hours)
+        axis_end += right_extension
+        missing_hours -= right_extension
+        axis_start = max(0, axis_start - missing_hours)
+        axis_span = axis_end - axis_start
         detail["ticks"] = [{
             "label": f"{hour + 1:02d}",
-            "left": round((hour + 0.5) / 24 * 100, 2),
-        } for hour in range(24)]
+            "left": round((hour - axis_start + 0.5) / axis_span * 100, 2),
+        } for hour in range(axis_start, axis_end)]
         for bucket in hourly_items:
             bucket["label"] = f"{bucket['hour']:02d}:00–{bucket['hour']:02d}:59"
-            bucket["left"] = round((bucket["hour"] + 0.5) / 24 * 100, 2)
+            bucket["left"] = round((bucket["hour"] - axis_start + 0.5) / axis_span * 100, 2)
             bucket["height"] = round(bucket["seconds"] / maximum * 100) if maximum else 0
             bucket["only_stopped"] = bucket["completed"] == 0
         hourly_items.sort(key=lambda bucket: bucket["hour"])

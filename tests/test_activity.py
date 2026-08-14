@@ -34,8 +34,8 @@ def test_activity_is_grouped_by_day_for_one_user():
     assert summary["month_completed"] == 1
     assert summary["month_stopped"] == 1
     assert summary["details"]["2026-08-14"]["seconds"] == 1800
-    assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "01"
-    assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "24"
+    assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "08"
+    assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "13"
     assert len(summary["details"]["2026-08-14"]["hourly"]) == 1
     assert summary["details"]["2026-08-14"]["hourly"][0]["seconds"] == 1800
 
