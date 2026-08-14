@@ -1,5 +1,6 @@
 import asyncio
 import calendar
+import hashlib
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -66,6 +67,10 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+STATIC_VERSION = hashlib.sha256(b"".join(
+    path.read_bytes() for path in sorted((BASE_DIR / "static").iterdir()) if path.is_file()
+)).hexdigest()[:12]
+templates.env.globals["static_version"] = STATIC_VERSION
 
 
 def redirect(path: str) -> RedirectResponse:
