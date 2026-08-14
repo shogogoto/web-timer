@@ -187,9 +187,16 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
     month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     for detail in daily_details.values():
-        maximum = max((session["seconds"] for session in detail["sessions"]), default=0)
-        earliest = min((session["start_minute"] for session in detail["sessions"]), default=0)
-        latest = max((session["start_minute"] + session["seconds"] / 60 for session in detail["sessions"]), default=0)
+        hourly: dict = {}
+        for session in detail["sessions"]:
+            hour = session["start_minute"] // 60
+            bucket = hourly.setdefault(hour, {"hour": hour, "seconds": 0, "completed": 0, "stopped": 0})
+            bucket["seconds"] += session["seconds"]
+            bucket[session["status"]] += 1
+        hourly_items = list(hourly.values())
+        maximum = max((bucket["seconds"] for bucket in hourly_items), default=0)
+        earliest = min((bucket["hour"] * 60 for bucket in hourly_items), default=0)
+        latest = max(((bucket["hour"] + 1) * 60 for bucket in hourly_items), default=0)
         timeline_start = math.floor(earliest / 120) * 120
         timeline_end = math.ceil(latest / 120) * 120
         if timeline_end - timeline_start < 360:
@@ -202,9 +209,13 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
             "label": f"{minute // 60}:00",
             "left": round((minute - timeline_start) / span * 100, 2),
         } for minute in range(timeline_start, timeline_end + 1, 120)]
-        for session in detail["sessions"]:
-            session["left"] = round((session["start_minute"] - timeline_start) / span * 100, 2)
-            session["height"] = round(session["seconds"] / maximum * 100) if maximum else 0
+        for bucket in hourly_items:
+            bucket["label"] = f"{bucket['hour']}:00"
+            bucket["left"] = round((bucket["hour"] * 60 + 30 - timeline_start) / span * 100, 2)
+            bucket["height"] = round(bucket["seconds"] / maximum * 100) if maximum else 0
+            bucket["only_stopped"] = bucket["completed"] == 0
+        hourly_items.sort(key=lambda bucket: bucket["hour"])
+        detail["hourly"] = hourly_items
         detail["sessions"].sort(key=lambda session: session["time"])
     return {
         "today_minutes": daily_seconds.get(today, 0) // 60,

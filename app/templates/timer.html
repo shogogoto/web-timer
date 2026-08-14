@@ -62,9 +62,9 @@
               <template x-for="tick in selectedActivity.ticks" :key="tick.label">
                 <div class="timeline-gridline" :style="`left:${tick.left}%`"><span x-text="tick.label"></span></div>
               </template>
-              <template x-for="(session,index) in selectedActivity.sessions" :key="index">
-                <button type="button" class="timeline-bar" :class="session.status" :style="`left:${session.left}%;height:${session.height}%`" :title="session.time+' / '+formatDuration(session.seconds)">
-                  <span x-text="formatDuration(session.seconds)"></span>
+              <template x-for="bucket in selectedActivity.hourly" :key="bucket.hour">
+                <button type="button" class="timeline-bar" :class="{'stopped':bucket.only_stopped}" :style="`left:${bucket.left}%;height:${bucket.height}%`" :title="bucket.label+' / '+formatDuration(bucket.seconds)+' / 完了 '+bucket.completed+'回 / 途中終了 '+bucket.stopped+'回'">
+                  <span x-text="formatDuration(bucket.seconds)"></span>
                 </button>
               </template>
             </div>
