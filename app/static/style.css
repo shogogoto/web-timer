@@ -153,6 +153,9 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
 .user-link:hover, .back-link:hover { text-decoration: underline; }
 .admin-activity-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .admin-activity-heading h1 { margin: 0; }
+.admin-activity-heading span { color: var(--muted); }
+.copy-report { display: flex; align-items: center; gap: .75rem; }
+.copy-report small { min-width: 6.5rem; color: var(--muted); }
 
 @media (prefers-color-scheme: dark) {
   button:hover { filter: brightness(1.12); }
@@ -168,4 +171,5 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   .calendar-day { min-height: 3.5rem; padding: .25rem; }
   .activity-stats { grid-template-columns: 1fr; gap: .75rem; }
   .login { margin: 8vh 1rem; }
+  .admin-activity-heading { align-items: flex-start; flex-direction: column; }
 }

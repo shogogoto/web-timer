@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.main import TZ, activity_summary
+from app.main import TZ, activity_summary, format_duration_ja
 from app.models import TimerSession, User
 
 
@@ -28,8 +28,10 @@ def test_activity_is_grouped_by_day_for_one_user():
         summary = activity_summary(db, user.id, now)
 
     assert summary["today_minutes"] == 30
+    assert summary["today_seconds"] == 1800
     assert summary["week_minutes"] == 30
     assert summary["month_minutes"] == 30
+    assert summary["month_seconds"] == 1800
     assert summary["week"][4]["minutes"] == 30
     assert summary["month_completed"] == 1
     assert summary["month_stopped"] == 1
@@ -38,6 +40,12 @@ def test_activity_is_grouped_by_day_for_one_user():
     assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "13"
     assert len(summary["details"]["2026-08-14"]["hourly"]) == 1
     assert summary["details"]["2026-08-14"]["hourly"][0]["seconds"] == 1800
+
+
+def test_report_duration_keeps_seconds():
+    assert format_duration_ja(0) == "0秒"
+    assert format_duration_ja(2043) == "34分3秒"
+    assert format_duration_ja(7500) == "2時間5分"
 
 
 def test_activity_can_display_another_month():

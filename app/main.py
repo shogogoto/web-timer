@@ -72,6 +72,19 @@ def redirect(path: str) -> RedirectResponse:
     return RedirectResponse(path, status_code=303)
 
 
+def format_duration_ja(seconds: int) -> str:
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours}時間")
+    if minutes:
+        parts.append(f"{minutes}分")
+    if seconds or not parts:
+        parts.append(f"{seconds}秒")
+    return "".join(parts)
+
+
 def active_session(db: Session, user_id: int) -> TimerSession | None:
     return db.scalars(
         select(TimerSession)
@@ -220,12 +233,15 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
         detail["hourly"] = hourly_items
         detail["sessions"].sort(key=lambda session: session["time"])
     return {
+        "today_seconds": daily_seconds.get(today, 0),
         "today_minutes": daily_seconds.get(today, 0) // 60,
         "week": week,
+        "week_seconds": sum(daily_seconds.get(week_start + timedelta(days=i), 0) for i in range(7)),
         "week_minutes": sum(item["minutes"] for item in week),
         "month_label": f"{month_start.year}年{month_start.month}月",
         "previous_month": previous_month.strftime("%Y-%m"),
         "next_month": next_month.strftime("%Y-%m"),
+        "month_seconds": month_seconds,
         "month_minutes": month_seconds // 60,
         "month_completed": month_completed,
         "month_stopped": month_stopped,
@@ -422,9 +438,19 @@ def admin_user_activity(
             target_month = datetime.strptime(month, "%Y-%m").date()
         except ValueError:
             pass
+    activity = activity_summary(db, account.id, target_month=target_month)
+    report_text = "\n".join([
+        f"{account.username} 集中時間",
+        f"今日: {format_duration_ja(activity['today_seconds'])}",
+        f"今週: {format_duration_ja(activity['week_seconds'])}",
+        f"{activity['month_label']}: {format_duration_ja(activity['month_seconds'])}",
+        f"完了: {activity['month_completed']}回",
+        f"途中終了: {activity['month_stopped']}回",
+    ])
     return templates.TemplateResponse(request, "admin_user.html", {
         "account": account,
-        "activity": activity_summary(db, account.id, target_month=target_month),
+        "activity": activity,
+        "report_text": report_text,
     })
 
 
