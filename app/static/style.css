@@ -149,6 +149,10 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
 .password-reset summary { color: var(--primary); cursor: pointer; white-space: nowrap; }
 .password-reset form { min-width: 18rem; display: flex; gap: .5rem; margin-top: .6rem; }
 .password-reset input { min-width: 0; }
+.user-link, .back-link { color: var(--primary); text-decoration: none; }
+.user-link:hover, .back-link:hover { text-decoration: underline; }
+.admin-activity-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.admin-activity-heading h1 { margin: 0; }
 
 @media (prefers-color-scheme: dark) {
   button:hover { filter: brightness(1.12); }

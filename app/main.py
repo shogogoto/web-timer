@@ -405,6 +405,29 @@ def admin_page(request: Request, _: User = Depends(admin_user), db: Session = De
     return templates.TemplateResponse(request, "admin.html", {"rows": rows})
 
 
+@app.get("/admin/users/{user_id}", response_class=HTMLResponse)
+def admin_user_activity(
+    request: Request,
+    user_id: int,
+    month: str | None = None,
+    _: User = Depends(admin_user),
+    db: Session = Depends(get_db),
+):
+    account = db.get(User, user_id)
+    if not account or account.role == "admin":
+        raise HTTPException(404, "利用者が見つかりません")
+    target_month = None
+    if month:
+        try:
+            target_month = datetime.strptime(month, "%Y-%m").date()
+        except ValueError:
+            pass
+    return templates.TemplateResponse(request, "admin_user.html", {
+        "account": account,
+        "activity": activity_summary(db, account.id, target_month=target_month),
+    })
+
+
 @app.post("/admin/users")
 def create_account(username: str = Form(), password: str = Form(), _: User = Depends(admin_user), db: Session = Depends(get_db)):
     username = username.strip()

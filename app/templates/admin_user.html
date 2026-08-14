@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ account.username }}の集中時間 - Focus Timer{% endblock %}
+{% block body %}
+<main x-data='studyTimer(null, 300, {{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' class="admin-shell">
+  <header><a class="back-link" href="/admin">‹ 管理画面へ戻る</a><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
+  <div class="admin-activity-heading"><h1>{{ account.username }}</h1><span>集中時間</span></div>
+  <section class="activity-grid">
+    <article class="summary-card today-summary">
+      <span>今日</span><strong>{{ activity.today_minutes }}<small>分</small></strong>
+    </article>
+    <article class="summary-card weekly-summary">
+      <div class="summary-heading"><h2>今週</h2><strong>{{ activity.week_minutes }}分</strong></div>
+      <div class="week-chart">
+        {% for day in activity.week %}
+        <div class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.minutes }}分">
+          <span class="bar-value">{{ day.minutes }}</span><div class="bar-track"><div class="bar" style="height:{{ day.percent }}%"></div></div><span>{{ day.label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+    <article class="summary-card monthly-summary">
+      <div class="summary-heading month-heading">
+        <a href="/admin/users/{{ account.id }}?month={{ activity.previous_month }}" aria-label="前月">‹</a>
+        <h2>{{ activity.month_label }}</h2><strong>{{ activity.month_minutes }}分</strong>
+        <a href="/admin/users/{{ account.id }}?month={{ activity.next_month }}" aria-label="翌月">›</a>
+      </div>
+      <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
+      <div class="calendar month-grid bubble-calendar">
+        {% for week in activity.month_weeks %}{% for day in week %}
+        <button type="button" @click="selectedDate='{{ day.date }}'" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.minutes }}分">
+          <span class="day-number">{{ day.day }}</span><span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>
+        </button>
+        {% endfor %}{% endfor %}
+      </div>
+      <div class="day-detail">
+        <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span x-text="formatDuration(selectedActivity.seconds)"></span></div>
+        <template x-if="selectedActivity.sessions.length"><div class="timeline-chart"><div class="timeline-plot">
+          <template x-for="tick in selectedActivity.ticks" :key="tick.label"><div class="timeline-gridline" :style="`left:${tick.left}%`"><span x-text="tick.label"></span></div></template>
+          <template x-for="bucket in selectedActivity.hourly" :key="bucket.hour"><button type="button" class="timeline-bar" :class="{'stopped':bucket.only_stopped}" :style="`left:${bucket.left}%;height:${bucket.height}%`" :title="bucket.label+' / '+formatDuration(bucket.seconds)+' / 完了 '+bucket.completed+'回 / 途中終了 '+bucket.stopped+'回'"><span x-text="formatDuration(bucket.seconds)"></span></button></template>
+        </div></div></template>
+        <template x-if="!selectedActivity.sessions.length"><p class="empty-activity">この日の記録はありません</p></template>
+      </div>
+      <div class="activity-stats">
+        <div><span>今月の集中時間</span><strong>{{ activity.month_minutes }}分</strong></div>
+        <div><span>完了</span><strong>{{ activity.month_completed }}回</strong></div>
+        <div><span>途中終了</span><strong>{{ activity.month_stopped }}回</strong></div>
+      </div>
+    </article>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+{% endblock %}
