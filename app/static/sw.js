@@ -10,6 +10,7 @@ self.addEventListener('push', event => {
       tag: 'timer-finished',
       renotify: true,
       requireInteraction: true,
+      silent: false,
       vibrate: [200, 100, 200]
     }),
     clients.matchAll({type: 'window', includeUncontrolled: true}).then(windows => {
