@@ -175,15 +175,16 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
 
     weekday_labels = ["月", "火", "水", "木", "金", "土", "日"]
     week = []
-    week_max = max((daily_seconds.get(week_start + timedelta(days=i), 0) for i in range(7)), default=0)
+    week_max_minutes = max((daily_seconds.get(week_start + timedelta(days=i), 0) // 60 for i in range(7)), default=0)
     for index, label in enumerate(weekday_labels):
         day = week_start + timedelta(days=index)
         seconds = daily_seconds.get(day, 0)
+        minutes = seconds // 60
         week.append({
             "label": label,
             "date": day.day,
-            "minutes": seconds // 60,
-            "percent": round(seconds / week_max * 100) if week_max else 0,
+            "minutes": minutes,
+            "percent": round(minutes / week_max_minutes * 100) if week_max_minutes else 0,
             "is_today": day == today,
         })
 
