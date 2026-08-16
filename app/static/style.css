@@ -105,6 +105,7 @@ input, select {
 .reminder-form label { display: grid; gap: .4rem; color: var(--muted); font-size: .85rem; }
 .time-select { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .35rem; color: var(--text); font-size: 1rem; }
 .time-select select { min-width: 0; font-variant-numeric: tabular-nums; text-align: center; }
+.time-select > select { min-width: 4.75rem; }
 .minute-choice { display: flex; align-items: center; gap: .4rem; }
 .minute-choice > select { flex: 1; }
 .custom-minute { display: flex; align-items: center; gap: .25rem; white-space: nowrap; }
