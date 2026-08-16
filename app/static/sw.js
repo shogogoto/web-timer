@@ -1,3 +1,11 @@
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', event => {
   let message = {type: 'timer-finished', title: '時間になりました', body: 'タイマーが終了しました', url: '/', tag: 'timer-finished'};
   if (event.data) {
@@ -14,7 +22,10 @@ self.addEventListener('push', event => {
       vibrate: [200, 100, 200]
     }),
     clients.matchAll({type: 'window', includeUncontrolled: true}).then(windows => {
-      if (message.type === 'timer-finished') windows.forEach(client => client.postMessage({type: 'timer-finished'}));
+      const client = windows.find(windowClient => windowClient.focused)
+        || windows.find(windowClient => windowClient.visibilityState === 'visible')
+        || windows[0];
+      if (client) client.postMessage({type: message.type});
     })
   ]));
 });

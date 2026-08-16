@@ -1,3 +1,44 @@
+let reminderAudioContext = null;
+
+async function unlockReminderAudio() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!reminderAudioContext) reminderAudioContext = new AudioContextClass();
+  if (reminderAudioContext.state === 'suspended') await reminderAudioContext.resume();
+  return reminderAudioContext;
+}
+
+async function playReminderSound() {
+  const context = await unlockReminderAudio();
+  if (!context || context.state !== 'running') return false;
+  const startedAt = context.currentTime;
+  const master = context.createGain();
+  master.gain.setValueAtTime(.001, startedAt);
+  master.gain.exponentialRampToValueAtTime(.55, startedAt + .01);
+  master.gain.exponentialRampToValueAtTime(.001, startedAt + 1.8);
+  master.connect(context.destination);
+  [[1046.5, 0], [1568, .14], [2093, .28]].forEach(([frequency, delay]) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, startedAt + delay);
+    gain.gain.setValueAtTime(.001, startedAt + delay);
+    gain.gain.exponentialRampToValueAtTime(.5, startedAt + delay + .01);
+    gain.gain.exponentialRampToValueAtTime(.001, startedAt + delay + 1.15);
+    oscillator.connect(gain).connect(master);
+    oscillator.start(startedAt + delay);
+    oscillator.stop(startedAt + delay + 1.2);
+  });
+  return true;
+}
+
+document.addEventListener('pointerdown', () => { unlockReminderAudio().catch(() => {}); }, {once: true, capture: true});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'reminder') playReminderSound().catch(() => {});
+  });
+}
+
 function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
   return {
     selectedSeconds: initial ? initial.planned : defaultSeconds,
@@ -51,9 +92,14 @@ function reminderForm() {
   return {
     error: '',
     submitting: false,
+    async testSound() {
+      this.error = '';
+      if (!await playReminderSound()) this.error = 'このブラウザでは通知音を再生できません';
+    },
     async submit(event) {
       if (this.submitting) return;
       try {
+        await unlockReminderAudio();
         if (!window.isSecureContext || !('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
           throw new Error('リマインダー通知を使うにはHTTPS対応ブラウザで開いてください');
         }

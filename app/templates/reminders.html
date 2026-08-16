@@ -34,6 +34,7 @@
       <label class="message-field">通知メッセージ（任意）
         <input type="text" name="notification_message" maxlength="120" placeholder="未設定なら標準メッセージを表示">
       </label>
+      <button class="link sound-test" type="button" @click="testSound">通知音をテスト</button>
       <p class="error reminder-form-error" x-text="error"></p>
     </form>
   </section>

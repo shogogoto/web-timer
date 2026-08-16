@@ -111,6 +111,7 @@ input, select {
 .custom-minute { display: flex; align-items: center; gap: .25rem; white-space: nowrap; }
 .custom-minute input { width: 4.5rem; text-align: right; }
 .message-field { grid-column: 1 / -1; }
+.sound-test { grid-column: 1 / -1; justify-self: start; color: var(--primary); }
 .reminder-form-error { grid-column: 1 / -1; margin: 0; }
 .reminder-list { display: grid; gap: .75rem; }
 .reminder-row { padding: 1rem 0; border-bottom: 1px solid var(--border); }

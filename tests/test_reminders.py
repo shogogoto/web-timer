@@ -38,6 +38,7 @@ def test_reminder_minute_ui_uses_five_minute_presets_and_manual_input():
     assert 'name="reminder_minute"' in html
     assert '<option value="-1">毎日</option>' in html
     assert 'name="notification_message"' in html
+    assert '通知音をテスト' in html
 
 
 def test_existing_reminder_renders_prefilled_edit_form():
