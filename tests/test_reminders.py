@@ -51,7 +51,7 @@ def test_reminder_can_be_created_toggled_and_deleted_by_owner():
         db.add_all([owner, other])
         db.commit()
 
-        response = create_reminder(2, "19:05", 45, owner, db)
+        response = create_reminder(2, 19, 5, 45, owner, db)
         reminder = db.query(Reminder).one()
         assert response.headers["location"] == "/reminders"
         assert (reminder.weekday, reminder.minute_of_day, reminder.planned_seconds) == (2, 19 * 60 + 5, 2700)

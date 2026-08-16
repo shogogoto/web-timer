@@ -385,21 +385,24 @@ def reminder_page(request: Request, user: User = Depends(current_user), db: Sess
 @app.post("/reminders")
 def create_reminder(
     weekday: int = Form(),
-    reminder_time: str = Form(),
+    reminder_hour: int = Form(),
+    reminder_minute: int = Form(),
     planned_minutes: int = Form(),
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    try:
-        parsed_time = datetime.strptime(reminder_time, "%H:%M")
-    except ValueError as exc:
-        raise HTTPException(422, "時刻が不正です") from exc
-    if weekday not in range(7) or planned_minutes < 5 or planned_minutes > 240:
+    if (
+        weekday not in range(7)
+        or reminder_hour not in range(24)
+        or reminder_minute not in range(0, 60, 5)
+        or planned_minutes < 5
+        or planned_minutes > 240
+    ):
         raise HTTPException(422, "設定できる範囲外です")
     db.add(Reminder(
         user_id=user.id,
         weekday=weekday,
-        minute_of_day=parsed_time.hour * 60 + parsed_time.minute,
+        minute_of_day=reminder_hour * 60 + reminder_minute,
         planned_seconds=planned_minutes * 60,
     ))
     db.commit()

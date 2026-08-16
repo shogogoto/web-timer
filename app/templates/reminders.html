@@ -10,7 +10,13 @@
       <label>曜日
         <select name="weekday" required>{% for label in weekday_labels %}<option value="{{ loop.index0 }}">{{ label }}曜日</option>{% endfor %}</select>
       </label>
-      <label>時刻<input type="time" name="reminder_time" required></label>
+      <label>時刻
+        <span class="time-select">
+          <select name="reminder_hour" aria-label="時" required>{% for hour in range(24) %}<option value="{{ hour }}"{% if hour == 19 %} selected{% endif %}>{{ '%02d' | format(hour) }}</option>{% endfor %}</select>
+          <span>:</span>
+          <select name="reminder_minute" aria-label="分" required>{% for minute in range(0, 60, 5) %}<option value="{{ minute }}">{{ '%02d' | format(minute) }}</option>{% endfor %}</select>
+        </span>
+      </label>
       <label>タイマー
         <select name="planned_minutes" required>{% for minutes in [5,10,15,30,45,60,90,120] %}<option value="{{ minutes }}">{{ minutes }}分</option>{% endfor %}</select>
       </label>
