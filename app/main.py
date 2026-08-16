@@ -11,14 +11,19 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Requ
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import admin_user, bootstrap_admin, current_user, hash_password, verify_password
 from .db import Base, SessionLocal, engine, get_db
-from .models import PushSubscription, TimerSession, User
-from .push import application_server_key, ensure_vapid_key, send_timer_notification_async
+from .models import PushSubscription, Reminder, TimerSession, User
+from .push import (
+    application_server_key,
+    ensure_vapid_key,
+    send_reminder_notification_async,
+    send_timer_notification_async,
+)
 from .timer import remaining_seconds, worked_so_far
 
 BASE_DIR = Path(__file__).parent
@@ -44,6 +49,7 @@ async def notification_loop() -> None:
     while True:
         await asyncio.sleep(1)
         completed_user_ids: list[int] = []
+        reminder_notifications: list[dict] = []
         now = datetime.now(timezone.utc)
         with SessionLocal() as db:
             sessions = db.scalars(select(TimerSession).where(TimerSession.status == "running")).all()
@@ -53,9 +59,12 @@ async def notification_loop() -> None:
                     session.ended_at = now
                     session.status = "completed"
                     completed_user_ids.append(session.user_id)
+            reminder_notifications = collect_due_reminders(db, now)
             db.commit()
         for user_id in completed_user_ids:
             await send_timer_notification_async(SessionLocal, user_id)
+        for notification in reminder_notifications:
+            await send_reminder_notification_async(SessionLocal, notification)
 
 
 app = FastAPI(title="Focus Timer", lifespan=lifespan)
@@ -96,6 +105,28 @@ def active_session(db: Session, user_id: int) -> TimerSession | None:
         .where(TimerSession.user_id == user_id, TimerSession.status.in_(["ready", "running", "paused"]))
         .order_by(TimerSession.id.desc())
     ).first()
+
+
+def collect_due_reminders(db: Session, now: datetime) -> list[dict]:
+    local_now = now.astimezone(TZ)
+    today = local_now.date()
+    reminders = db.scalars(select(Reminder).where(
+        Reminder.enabled.is_(True),
+        Reminder.weekday == local_now.weekday(),
+        Reminder.minute_of_day == local_now.hour * 60 + local_now.minute,
+        or_(Reminder.last_notified_on.is_(None), Reminder.last_notified_on != today),
+    )).all()
+    notifications = []
+    for reminder in reminders:
+        reminder.last_notified_on = today
+        notifications.append({
+            "user_id": reminder.user_id,
+            "reminder_id": reminder.id,
+            "planned_seconds": reminder.planned_seconds,
+            "active": active_session(db, reminder.user_id) is not None,
+            "occurrence": today.isoformat(),
+        })
+    return notifications
 
 
 def last_planned_seconds(db: Session, user_id: int, allow_short: bool = False) -> int:
@@ -285,7 +316,13 @@ def logout(request: Request):
 
 
 @app.get("/", response_class=HTMLResponse)
-def timer_page(request: Request, month: str | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def timer_page(
+    request: Request,
+    month: str | None = None,
+    reminder: int | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     session = active_session(db, user.id)
     state = None
     if session:
@@ -296,17 +333,93 @@ def timer_page(request: Request, month: str | None = None, user: User = Depends(
             target_month = datetime.strptime(month, "%Y-%m").date()
         except ValueError:
             target_month = None
+    default_seconds = last_planned_seconds(db, user.id, ALLOW_SHORT_TIMERS)
+    reminder_minutes = None
+    if reminder is not None and session is None:
+        selected_reminder = db.get(Reminder, reminder)
+        if selected_reminder and selected_reminder.user_id == user.id:
+            default_seconds = selected_reminder.planned_seconds
+            reminder_minutes = selected_reminder.planned_seconds // 60
     return templates.TemplateResponse(
         request,
         "timer.html",
         {
             "user": user,
             "state": state,
-            "default_seconds": last_planned_seconds(db, user.id, ALLOW_SHORT_TIMERS),
+            "default_seconds": default_seconds,
+            "reminder_minutes": reminder_minutes,
             "activity": activity_summary(db, user.id, target_month=target_month),
             "allow_short_timers": ALLOW_SHORT_TIMERS,
         },
     )
+
+
+WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"]
+
+
+def owned_reminder(reminder_id: int, user: User, db: Session) -> Reminder:
+    reminder = db.get(Reminder, reminder_id)
+    if not reminder or reminder.user_id != user.id:
+        raise HTTPException(404, "リマインダーが見つかりません")
+    return reminder
+
+
+@app.get("/reminders", response_class=HTMLResponse)
+def reminder_page(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    reminders = db.scalars(select(Reminder).where(Reminder.user_id == user.id).order_by(
+        Reminder.weekday, Reminder.minute_of_day,
+    )).all()
+    rows = [{
+        "reminder": reminder,
+        "weekday": WEEKDAY_LABELS[reminder.weekday],
+        "time": f"{reminder.minute_of_day // 60:02d}:{reminder.minute_of_day % 60:02d}",
+        "minutes": reminder.planned_seconds // 60,
+    } for reminder in reminders]
+    return templates.TemplateResponse(request, "reminders.html", {
+        "user": user,
+        "rows": rows,
+        "weekday_labels": WEEKDAY_LABELS,
+    })
+
+
+@app.post("/reminders")
+def create_reminder(
+    weekday: int = Form(),
+    reminder_time: str = Form(),
+    planned_minutes: int = Form(),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        parsed_time = datetime.strptime(reminder_time, "%H:%M")
+    except ValueError as exc:
+        raise HTTPException(422, "時刻が不正です") from exc
+    if weekday not in range(7) or planned_minutes < 5 or planned_minutes > 240:
+        raise HTTPException(422, "設定できる範囲外です")
+    db.add(Reminder(
+        user_id=user.id,
+        weekday=weekday,
+        minute_of_day=parsed_time.hour * 60 + parsed_time.minute,
+        planned_seconds=planned_minutes * 60,
+    ))
+    db.commit()
+    return redirect("/reminders")
+
+
+@app.post("/reminders/{reminder_id}/toggle")
+def toggle_reminder(reminder_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    reminder = owned_reminder(reminder_id, user, db)
+    reminder.enabled = not reminder.enabled
+    db.commit()
+    return redirect("/reminders")
+
+
+@app.post("/reminders/{reminder_id}/delete")
+def delete_reminder(reminder_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    reminder = owned_reminder(reminder_id, user, db)
+    db.delete(reminder)
+    db.commit()
+    return redirect("/reminders")
 
 
 @app.post("/api/sessions")

@@ -46,3 +46,43 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     ring() { if(this.hasRung)return; this.hasRung=true; if(this.audioContext){this.audioContext.resume(); const at=this.audioContext.currentTime, master=this.audioContext.createGain(); master.gain.setValueAtTime(.75,at); master.gain.exponentialRampToValueAtTime(.001,at+2.4); master.connect(this.audioContext.destination); [[880,.65,2.4],[2425,.22,1.5],[4755,.1,.9],[7861,.045,.55]].forEach(([frequency,volume,decay])=>{const oscillator=this.audioContext.createOscillator(), gain=this.audioContext.createGain(); oscillator.type='sine'; oscillator.frequency.setValueAtTime(frequency,at); oscillator.frequency.exponentialRampToValueAtTime(frequency*.997,at+decay); gain.gain.setValueAtTime(.001,at); gain.gain.exponentialRampToValueAtTime(volume,at+.006); gain.gain.exponentialRampToValueAtTime(.001,at+decay); oscillator.connect(gain).connect(master); oscillator.start(at); oscillator.stop(at+decay+.05);});} }
   }
 }
+
+function reminderForm() {
+  return {
+    error: '',
+    submitting: false,
+    async submit(event) {
+      if (this.submitting) return;
+      try {
+        if (!window.isSecureContext || !('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+          throw new Error('リマインダー通知を使うにはHTTPS対応ブラウザで開いてください');
+        }
+        if (Notification.permission === 'default') await Notification.requestPermission();
+        if (Notification.permission !== 'granted') throw new Error('ブラウザの通知を許可してください');
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const config = await fetch('/api/push/config').then(response => response.json());
+        const existing = await registration.pushManager.getSubscription();
+        const subscription = existing || await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: this.urlBase64ToUint8Array(config.application_server_key)
+        });
+        const response = await fetch('/api/push/subscriptions', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(subscription)
+        });
+        if (!response.ok) throw new Error('通知の登録に失敗しました');
+        this.submitting = true;
+        event.target.submit();
+      } catch (error) {
+        this.error = error.message || '通知の登録に失敗しました';
+      }
+    },
+    urlBase64ToUint8Array(value) {
+      const padding = '='.repeat((4 - value.length % 4) % 4);
+      const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(base64);
+      return Uint8Array.from([...raw].map(character => character.charCodeAt(0)));
+    }
+  }
+}

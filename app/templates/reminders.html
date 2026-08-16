@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}リマインダー - Focus Timer{% endblock %}
+{% block body %}
+<main class="timer-shell reminder-shell">
+  <header><span>{{ user.username }}</span><nav><a class="link" href="/">タイマー</a><form method="post" action="/logout"><button class="link">ログアウト</button></form></nav></header>
+  <section class="card">
+    <h1>リマインダー</h1>
+    <p class="muted">予定時刻に通知します。タイマーは自動では開始されません。</p>
+    <form class="reminder-form" method="post" action="/reminders" x-data="reminderForm()" @submit.prevent="submit($event)">
+      <label>曜日
+        <select name="weekday" required>{% for label in weekday_labels %}<option value="{{ loop.index0 }}">{{ label }}曜日</option>{% endfor %}</select>
+      </label>
+      <label>時刻<input type="time" name="reminder_time" required></label>
+      <label>タイマー
+        <select name="planned_minutes" required>{% for minutes in [5,10,15,30,45,60,90,120] %}<option value="{{ minutes }}">{{ minutes }}分</option>{% endfor %}</select>
+      </label>
+      <button class="primary" type="submit">追加</button>
+      <p class="error reminder-form-error" x-text="error"></p>
+    </form>
+  </section>
+  <section class="card reminder-list">
+    <h2>登録済み</h2>
+    {% if rows %}
+      {% for row in rows %}
+      <article class="reminder-row{% if not row.reminder.enabled %} disabled{% endif %}">
+        <div><strong>{{ row.weekday }}曜日 {{ row.time }}</strong><span>{{ row.minutes }}分</span></div>
+        <div class="reminder-actions">
+          <form method="post" action="/reminders/{{ row.reminder.id }}/toggle"><button type="submit">{% if row.reminder.enabled %}無効にする{% else %}有効にする{% endif %}</button></form>
+          <form method="post" action="/reminders/{{ row.reminder.id }}/delete"><button class="danger" type="submit">削除</button></form>
+        </div>
+      </article>
+      {% endfor %}
+    {% else %}<p class="muted">リマインダーはまだありません。</p>{% endif %}
+  </section>
+</main>
+<script src="/static/app.js?v={{ static_version }}"></script>
+{% endblock %}

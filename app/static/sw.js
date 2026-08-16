@@ -1,5 +1,5 @@
 self.addEventListener('push', event => {
-  let message = {title: '時間になりました', body: 'タイマーが終了しました', url: '/'};
+  let message = {type: 'timer-finished', title: '時間になりました', body: 'タイマーが終了しました', url: '/', tag: 'timer-finished'};
   if (event.data) {
     try { message = {...message, ...event.data.json()}; } catch (_) {}
   }
@@ -7,14 +7,14 @@ self.addEventListener('push', event => {
     self.registration.showNotification(message.title, {
       body: message.body,
       data: {url: message.url},
-      tag: 'timer-finished',
+      tag: message.tag,
       renotify: true,
       requireInteraction: true,
       silent: false,
       vibrate: [200, 100, 200]
     }),
     clients.matchAll({type: 'window', includeUncontrolled: true}).then(windows => {
-      windows.forEach(client => client.postMessage({type: 'timer-finished'}));
+      if (message.type === 'timer-finished') windows.forEach(client => client.postMessage({type: 'timer-finished'}));
     })
   ]));
 });

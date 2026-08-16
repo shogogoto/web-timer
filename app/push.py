@@ -51,17 +51,17 @@ def application_server_key() -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
-def send_timer_notification(db, user_id: int) -> None:
+def send_push_notification(db, user_id: int, payload: dict, ttl: int = 60) -> None:
     subscriptions = db.scalars(select(PushSubscription).where(PushSubscription.user_id == user_id)).all()
-    payload = json.dumps({"title": "時間になりました", "body": "タイマーが終了しました", "url": "/"})
+    data = json.dumps(payload)
     for subscription in subscriptions:
         try:
             webpush(
                 subscription_info={"endpoint": subscription.endpoint, "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth}},
-                data=payload,
+                data=data,
                 vapid_private_key=str(PRIVATE_KEY_PATH),
                 vapid_claims={"sub": VAPID_SUBJECT},
-                ttl=60,
+                ttl=ttl,
                 timeout=10,
             )
         except WebPushException as exc:
@@ -72,9 +72,46 @@ def send_timer_notification(db, user_id: int) -> None:
                 logger.warning("Web Push delivery failed for subscription %s: %s", subscription.id, exc)
 
 
+def send_timer_notification(db, user_id: int) -> None:
+    send_push_notification(db, user_id, {
+        "type": "timer-finished",
+        "title": "時間になりました",
+        "body": "タイマーが終了しました",
+        "url": "/",
+        "tag": "timer-finished",
+    })
+
+
+def send_reminder_notification(
+    db,
+    user_id: int,
+    reminder_id: int,
+    planned_seconds: int,
+    active: bool,
+    occurrence: str,
+) -> None:
+    minutes = planned_seconds // 60
+    body = "現在のタイマーを続けてください" if active else "タップしてタイマーを準備できます"
+    send_push_notification(db, user_id, {
+        "type": "reminder",
+        "title": f"{minutes}分の集中予定です",
+        "body": body,
+        "url": f"/?reminder={reminder_id}",
+        "tag": f"reminder-{reminder_id}-{occurrence}",
+    }, ttl=15 * 60)
+
+
 async def send_timer_notification_async(db_factory, user_id: int) -> None:
     def send() -> None:
         with db_factory() as db:
             send_timer_notification(db, user_id)
+
+    await asyncio.to_thread(send)
+
+
+async def send_reminder_notification_async(db_factory, notification: dict) -> None:
+    def send() -> None:
+        with db_factory() as db:
+            send_reminder_notification(db, **notification)
 
     await asyncio.to_thread(send)

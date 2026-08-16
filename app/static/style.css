@@ -30,7 +30,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; color: var(--text); background: var(--background); }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button {
   border: 0;
   border-radius: .65rem;
@@ -52,7 +52,7 @@ button:hover { filter: brightness(.96); }
 .finished strong { font-size: 1.5rem; }
 .finished span { color: var(--muted); }
 .stack label { display: grid; gap: .4rem; }
-input {
+input, select {
   padding: .75rem;
   color: var(--text);
   background: var(--surface);
@@ -67,6 +67,9 @@ input {
   align-items: center;
   margin-bottom: 2rem;
 }
+.timer-shell header nav { display: flex; align-items: center; gap: 1rem; }
+.timer-shell header nav form { margin: 0; }
+.timer-shell a.link { text-decoration: none; }
 .link { padding: .25rem; color: var(--muted); background: none; }
 .timer-card {
   min-height: 27rem;
@@ -91,6 +94,22 @@ input {
 .big { min-width: 12rem; font-size: 1.3rem; }
 .danger { color: var(--danger); background: none; }
 .error { min-height: 1.5rem; color: var(--danger); }
+.reminder-selected { margin: -1rem 0 0; color: var(--primary); }
+
+.reminder-shell { max-width: 48rem; }
+.reminder-shell .card { margin-bottom: 1rem; }
+.reminder-shell h1, .reminder-shell h2 { margin-top: 0; }
+.muted { color: var(--muted); }
+.reminder-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; align-items: end; gap: .75rem; }
+.reminder-form label { display: grid; gap: .4rem; color: var(--muted); font-size: .85rem; }
+.reminder-form-error { grid-column: 1 / -1; margin: 0; }
+.reminder-list { display: grid; gap: .75rem; }
+.reminder-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.reminder-row:last-child { border-bottom: 0; }
+.reminder-row > div:first-child { display: grid; gap: .25rem; }
+.reminder-row span { color: var(--muted); }
+.reminder-row.disabled { opacity: .55; }
+.reminder-actions { display: flex; gap: .5rem; }
 
 .activity-grid { display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
 .activity-grid > * { min-width: 0; }
@@ -173,6 +192,8 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   .activity-stats { grid-template-columns: 1fr; gap: .75rem; }
   .login { margin: 8vh 1rem; }
   .admin-activity-heading { align-items: flex-start; flex-direction: column; }
+  .reminder-form { grid-template-columns: 1fr; }
+  .reminder-row { align-items: flex-start; flex-direction: column; }
 }
 
 @media (max-width: 400px) {
