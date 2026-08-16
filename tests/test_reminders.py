@@ -1,5 +1,6 @@
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -16,6 +17,7 @@ from app.main import (
     templates,
     timer_page,
     toggle_reminder,
+    update_reminder,
 )
 from app.models import PushSubscription, Reminder, TimerSession, User
 from app.push import send_reminder_notification
@@ -26,6 +28,7 @@ def test_reminder_minute_ui_uses_five_minute_presets_and_manual_input():
         user=type("User", (), {"username": "user"})(),
         rows=[],
         weekday_labels=["月", "火", "水", "木", "金", "土", "日"],
+        reminder_durations=[5, 10, 15, 30, 45, 60, 90, 120],
         static_version="test",
     )
 
@@ -35,6 +38,31 @@ def test_reminder_minute_ui_uses_five_minute_presets_and_manual_input():
     assert 'name="reminder_minute"' in html
     assert '<option value="-1">毎日</option>' in html
     assert 'name="notification_message"' in html
+
+
+def test_existing_reminder_renders_prefilled_edit_form():
+    reminder = SimpleNamespace(
+        id=12,
+        weekday=-1,
+        minute_of_day=19 * 60 + 3,
+        planned_seconds=2700,
+        message="数学を始める",
+        enabled=True,
+    )
+    html = templates.env.get_template("reminders.html").render(
+        user=SimpleNamespace(username="user"),
+        rows=[{"reminder": reminder, "weekday": "毎日", "time": "19:03", "minutes": 45}],
+        weekday_labels=["月", "火", "水", "木", "金", "土", "日"],
+        reminder_durations=[5, 10, 15, 30, 45, 60, 90, 120],
+        static_version="test",
+    )
+
+    assert 'action="/reminders/12"' in html
+    assert 'value="-1" selected' in html
+    assert 'value="19" selected' in html
+    assert 'value="custom" selected' in html
+    assert 'value="45" selected' in html
+    assert 'value="数学を始める"' in html
 
 
 def test_due_reminder_is_collected_once_without_changing_active_timer():
@@ -81,6 +109,23 @@ def test_reminder_can_be_created_toggled_and_deleted_by_owner():
         assert response.headers["location"] == "/reminders"
         assert (reminder.weekday, reminder.minute_of_day, reminder.planned_seconds) == (2, 19 * 60 + 3, 2700)
         assert reminder.message == "数学を始める"
+
+        reminder.last_notified_on = date(2026, 8, 18)
+        db.commit()
+        update_reminder(reminder.id, 2, 19, 3, 45, "理科を始める", owner, db)
+        db.refresh(reminder)
+        assert reminder.message == "理科を始める"
+        assert reminder.last_notified_on == date(2026, 8, 18)
+
+        update_reminder(reminder.id, -1, 20, 7, 60, "", owner, db)
+        db.refresh(reminder)
+        assert (reminder.weekday, reminder.minute_of_day, reminder.planned_seconds) == (-1, 20 * 60 + 7, 3600)
+        assert reminder.message is None
+        assert reminder.last_notified_on is None
+
+        with pytest.raises(HTTPException) as denied_update:
+            update_reminder(reminder.id, 1, 10, 0, 30, "", other, db)
+        assert denied_update.value.status_code == 404
 
         toggle_reminder(reminder.id, owner, db)
         db.refresh(reminder)

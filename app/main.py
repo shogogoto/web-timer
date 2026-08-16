@@ -366,6 +366,7 @@ def timer_page(
 
 
 WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"]
+REMINDER_DURATIONS = [5, 10, 15, 30, 45, 60, 90, 120]
 
 
 def owned_reminder(reminder_id: int, user: User, db: Session) -> Reminder:
@@ -390,7 +391,33 @@ def reminder_page(request: Request, user: User = Depends(current_user), db: Sess
         "user": user,
         "rows": rows,
         "weekday_labels": WEEKDAY_LABELS,
+        "reminder_durations": REMINDER_DURATIONS,
     })
+
+
+def reminder_values(
+    weekday: int,
+    reminder_hour: int,
+    reminder_minute: int,
+    planned_minutes: int,
+    notification_message: str,
+) -> dict:
+    message = notification_message.strip()
+    if (
+        weekday not in range(-1, 7)
+        or reminder_hour not in range(24)
+        or reminder_minute not in range(60)
+        or planned_minutes < 5
+        or planned_minutes > 240
+        or len(message) > 120
+    ):
+        raise HTTPException(422, "設定できる範囲外です")
+    return {
+        "weekday": weekday,
+        "minute_of_day": reminder_hour * 60 + reminder_minute,
+        "planned_seconds": planned_minutes * 60,
+        "message": message or None,
+    }
 
 
 @app.post("/reminders")
@@ -403,23 +430,30 @@ def create_reminder(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    message = notification_message.strip()
-    if (
-        weekday not in range(-1, 7)
-        or reminder_hour not in range(24)
-        or reminder_minute not in range(60)
-        or planned_minutes < 5
-        or planned_minutes > 240
-        or len(message) > 120
-    ):
-        raise HTTPException(422, "設定できる範囲外です")
-    db.add(Reminder(
-        user_id=user.id,
-        weekday=weekday,
-        minute_of_day=reminder_hour * 60 + reminder_minute,
-        planned_seconds=planned_minutes * 60,
-        message=message or None,
-    ))
+    values = reminder_values(weekday, reminder_hour, reminder_minute, planned_minutes, notification_message)
+    db.add(Reminder(user_id=user.id, **values))
+    db.commit()
+    return redirect("/reminders")
+
+
+@app.post("/reminders/{reminder_id}")
+def update_reminder(
+    reminder_id: int,
+    weekday: int = Form(),
+    reminder_hour: int = Form(),
+    reminder_minute: int = Form(),
+    planned_minutes: int = Form(),
+    notification_message: str = Form(""),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    reminder = owned_reminder(reminder_id, user, db)
+    values = reminder_values(weekday, reminder_hour, reminder_minute, planned_minutes, notification_message)
+    schedule_changed = (reminder.weekday, reminder.minute_of_day) != (values["weekday"], values["minute_of_day"])
+    for key, value in values.items():
+        setattr(reminder, key, value)
+    if schedule_changed:
+        reminder.last_notified_on = None
     db.commit()
     return redirect("/reminders")
 

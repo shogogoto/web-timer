@@ -28,7 +28,7 @@
         </span>
       </label>
       <label>タイマー
-        <select name="planned_minutes" required>{% for minutes in [5,10,15,30,45,60,90,120] %}<option value="{{ minutes }}">{{ minutes }}分</option>{% endfor %}</select>
+        <select name="planned_minutes" required>{% for minutes in reminder_durations %}<option value="{{ minutes }}">{{ minutes }}分</option>{% endfor %}</select>
       </label>
       <button class="primary" type="submit">追加</button>
       <label class="message-field">通知メッセージ（任意）
@@ -41,12 +41,44 @@
     <h2>登録済み</h2>
     {% if rows %}
       {% for row in rows %}
-      <article class="reminder-row{% if not row.reminder.enabled %} disabled{% endif %}">
-        <div><strong>{{ row.weekday }} {{ row.time }}</strong><span>{{ row.minutes }}分{% if row.reminder.message %} · {{ row.reminder.message }}{% endif %}</span></div>
-        <div class="reminder-actions">
-          <form method="post" action="/reminders/{{ row.reminder.id }}/toggle"><button type="submit">{% if row.reminder.enabled %}無効にする{% else %}有効にする{% endif %}</button></form>
-          <form method="post" action="/reminders/{{ row.reminder.id }}/delete"><button class="danger" type="submit">削除</button></form>
+      <article class="reminder-row{% if not row.reminder.enabled %} disabled{% endif %}" x-data="{ editing: false }">
+        <div class="reminder-row-header">
+          <div class="reminder-overview"><strong>{{ row.weekday }} {{ row.time }}</strong><span>{{ row.minutes }}分{% if row.reminder.message %} · {{ row.reminder.message }}{% endif %}</span></div>
+          <div class="reminder-actions">
+            <button type="button" @click="editing=!editing" x-text="editing ? '閉じる' : '編集'"></button>
+            <form method="post" action="/reminders/{{ row.reminder.id }}/toggle"><button type="submit">{% if row.reminder.enabled %}無効にする{% else %}有効にする{% endif %}</button></form>
+            <form method="post" action="/reminders/{{ row.reminder.id }}/delete"><button class="danger" type="submit">削除</button></form>
+          </div>
         </div>
+        <form class="reminder-form reminder-edit-form" method="post" action="/reminders/{{ row.reminder.id }}" x-show="editing" x-cloak>
+          <label>曜日
+            <select name="weekday" required><option value="-1"{% if row.reminder.weekday == -1 %} selected{% endif %}>毎日</option>{% for label in weekday_labels %}<option value="{{ loop.index0 }}"{% if row.reminder.weekday == loop.index0 %} selected{% endif %}>{{ label }}曜日</option>{% endfor %}</select>
+          </label>
+          <label>時刻
+            <span class="time-select" x-data="{ minute: {{ row.reminder.minute_of_day % 60 }}, customMinute: {{ 'false' if row.reminder.minute_of_day % 5 == 0 else 'true' }} }">
+              <select name="reminder_hour" aria-label="時" required>{% for hour in range(24) %}<option value="{{ hour }}"{% if row.reminder.minute_of_day // 60 == hour %} selected{% endif %}>{{ '%02d' | format(hour) }}</option>{% endfor %}</select>
+              <span>:</span>
+              <span class="minute-choice">
+                <select aria-label="分" @change="customMinute=$event.target.value==='custom'; if(!customMinute) minute=Number($event.target.value)">
+                  {% for minute in range(0, 60, 5) %}<option value="{{ minute }}"{% if row.reminder.minute_of_day % 60 == minute %} selected{% endif %}>{{ '%02d' | format(minute) }}</option>{% endfor %}
+                  <option value="custom"{% if row.reminder.minute_of_day % 5 != 0 %} selected{% endif %}>手動入力…</option>
+                </select>
+                <span class="custom-minute" x-show="customMinute" x-cloak>
+                  <input type="number" min="0" max="59" inputmode="numeric" aria-label="分を手動入力" x-model.number="minute">
+                  <span>分</span>
+                </span>
+                <input type="hidden" name="reminder_minute" :value="minute">
+              </span>
+            </span>
+          </label>
+          <label>タイマー
+            <select name="planned_minutes" required>{% for minutes in reminder_durations %}<option value="{{ minutes }}"{% if row.minutes == minutes %} selected{% endif %}>{{ minutes }}分</option>{% endfor %}</select>
+          </label>
+          <button class="primary" type="submit">保存</button>
+          <label class="message-field">通知メッセージ（任意）
+            <input type="text" name="notification_message" maxlength="120" value="{{ row.reminder.message or '' }}" placeholder="未設定なら標準メッセージを表示">
+          </label>
+        </form>
       </article>
       {% endfor %}
     {% else %}<p class="muted">リマインダーはまだありません。</p>{% endif %}

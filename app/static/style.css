@@ -113,12 +113,14 @@ input, select {
 .message-field { grid-column: 1 / -1; }
 .reminder-form-error { grid-column: 1 / -1; margin: 0; }
 .reminder-list { display: grid; gap: .75rem; }
-.reminder-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.reminder-row { padding: 1rem 0; border-bottom: 1px solid var(--border); }
 .reminder-row:last-child { border-bottom: 0; }
-.reminder-row > div:first-child { display: grid; gap: .25rem; }
+.reminder-row-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.reminder-overview { display: grid; gap: .25rem; }
 .reminder-row span { color: var(--muted); }
 .reminder-row.disabled { opacity: .55; }
 .reminder-actions { display: flex; gap: .5rem; }
+.reminder-edit-form { margin-top: 1rem; padding: 1rem; background: var(--background); border-radius: .75rem; }
 
 .activity-grid { display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
 .activity-grid > * { min-width: 0; }
@@ -202,7 +204,8 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   .login { margin: 8vh 1rem; }
   .admin-activity-heading { align-items: flex-start; flex-direction: column; }
   .reminder-form { grid-template-columns: 1fr; }
-  .reminder-row { align-items: flex-start; flex-direction: column; }
+  .reminder-row-header { align-items: flex-start; flex-direction: column; }
+  .reminder-actions { flex-wrap: wrap; }
 }
 
 @media (max-width: 400px) {
