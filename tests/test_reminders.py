@@ -8,7 +8,15 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from app.db import Base
-from app.main import collect_due_reminders, create_reminder, delete_reminder, templates, timer_page, toggle_reminder
+from app.main import (
+    collect_due_reminders,
+    create_reminder,
+    delete_reminder,
+    initialize_database,
+    templates,
+    timer_page,
+    toggle_reminder,
+)
 from app.models import PushSubscription, Reminder, TimerSession, User
 from app.push import send_reminder_notification
 
@@ -25,6 +33,8 @@ def test_reminder_minute_ui_uses_five_minute_presets_and_manual_input():
     assert '<option value="custom">手動入力…</option>' in html
     assert '<option value="59">59</option>' not in html
     assert 'name="reminder_minute"' in html
+    assert '<option value="-1">毎日</option>' in html
+    assert 'name="notification_message"' in html
 
 
 def test_due_reminder_is_collected_once_without_changing_active_timer():
@@ -47,6 +57,7 @@ def test_due_reminder_is_collected_once_without_changing_active_timer():
             "user_id": user.id,
             "reminder_id": reminder.id,
             "planned_seconds": 3600,
+            "message": None,
             "active": True,
             "occurrence": "2026-08-17",
         }]
@@ -65,10 +76,11 @@ def test_reminder_can_be_created_toggled_and_deleted_by_owner():
         db.add_all([owner, other])
         db.commit()
 
-        response = create_reminder(2, 19, 3, 45, owner, db)
+        response = create_reminder(2, 19, 3, 45, "数学を始める", owner, db)
         reminder = db.query(Reminder).one()
         assert response.headers["location"] == "/reminders"
         assert (reminder.weekday, reminder.minute_of_day, reminder.planned_seconds) == (2, 19 * 60 + 3, 2700)
+        assert reminder.message == "数学を始める"
 
         toggle_reminder(reminder.id, owner, db)
         db.refresh(reminder)
@@ -101,6 +113,47 @@ def test_reminder_push_has_distinct_type_and_does_not_claim_timer_finished(monke
     assert payload["url"] == "/?reminder=7"
     assert payload["body"] == "現在のタイマーを続けてください"
     assert payload["tag"] == "reminder-7-2026-08-17"
+
+
+def test_daily_reminder_is_due_on_any_weekday_and_uses_custom_message(monkeypatch):
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    sent = []
+    monkeypatch.setattr("app.push.webpush", lambda **kwargs: sent.append(kwargs))
+    with Session(engine) as db:
+        user = User(username="user", password_hash="hash", role="user")
+        db.add(user)
+        db.flush()
+        reminder = Reminder(
+            user_id=user.id,
+            weekday=-1,
+            minute_of_day=9 * 60 + 30,
+            planned_seconds=1800,
+            message="英単語の時間です",
+        )
+        db.add(reminder)
+        db.flush()
+        db.add(PushSubscription(user_id=user.id, endpoint="https://push.example/2", p256dh="key", auth="auth"))
+        db.commit()
+
+        notifications = collect_due_reminders(db, datetime(2026, 8, 18, 0, 30, tzinfo=timezone.utc))
+        assert len(notifications) == 1
+        send_reminder_notification(db, **notifications[0])
+
+    payload = json.loads(sent[0]["data"])
+    assert payload["body"] == "英単語の時間です"
+
+
+def test_existing_sqlite_reminder_table_gets_message_column():
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE TABLE reminders (id INTEGER PRIMARY KEY, user_id INTEGER)")
+
+    initialize_database(engine)
+
+    with engine.connect() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(reminders)")}
+    assert "message" in columns
 
 
 def test_reminder_link_selects_duration_only_when_no_timer_is_active():

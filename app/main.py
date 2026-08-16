@@ -34,7 +34,7 @@ ALLOW_SHORT_TIMERS = os.getenv("ALLOW_SHORT_TIMERS", "false").lower() == "true"
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Path("data").mkdir(exist_ok=True)
-    Base.metadata.create_all(engine)
+    initialize_database()
     with SessionLocal() as db:
         bootstrap_admin(db)
     ensure_vapid_key()
@@ -43,6 +43,16 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         notifier.cancel()
+
+
+def initialize_database(database_engine=engine) -> None:
+    Base.metadata.create_all(database_engine)
+    if database_engine.dialect.name != "sqlite":
+        return
+    with database_engine.begin() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(reminders)")}
+        if "message" not in columns:
+            connection.exec_driver_sql("ALTER TABLE reminders ADD COLUMN message VARCHAR(120)")
 
 
 async def notification_loop() -> None:
@@ -112,7 +122,7 @@ def collect_due_reminders(db: Session, now: datetime) -> list[dict]:
     today = local_now.date()
     reminders = db.scalars(select(Reminder).where(
         Reminder.enabled.is_(True),
-        Reminder.weekday == local_now.weekday(),
+        or_(Reminder.weekday == -1, Reminder.weekday == local_now.weekday()),
         Reminder.minute_of_day == local_now.hour * 60 + local_now.minute,
         or_(Reminder.last_notified_on.is_(None), Reminder.last_notified_on != today),
     )).all()
@@ -123,6 +133,7 @@ def collect_due_reminders(db: Session, now: datetime) -> list[dict]:
             "user_id": reminder.user_id,
             "reminder_id": reminder.id,
             "planned_seconds": reminder.planned_seconds,
+            "message": reminder.message,
             "active": active_session(db, reminder.user_id) is not None,
             "occurrence": today.isoformat(),
         })
@@ -371,7 +382,7 @@ def reminder_page(request: Request, user: User = Depends(current_user), db: Sess
     )).all()
     rows = [{
         "reminder": reminder,
-        "weekday": WEEKDAY_LABELS[reminder.weekday],
+        "weekday": "毎日" if reminder.weekday == -1 else f"{WEEKDAY_LABELS[reminder.weekday]}曜日",
         "time": f"{reminder.minute_of_day // 60:02d}:{reminder.minute_of_day % 60:02d}",
         "minutes": reminder.planned_seconds // 60,
     } for reminder in reminders]
@@ -388,15 +399,18 @@ def create_reminder(
     reminder_hour: int = Form(),
     reminder_minute: int = Form(),
     planned_minutes: int = Form(),
+    notification_message: str = Form(""),
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    message = notification_message.strip()
     if (
-        weekday not in range(7)
+        weekday not in range(-1, 7)
         or reminder_hour not in range(24)
         or reminder_minute not in range(60)
         or planned_minutes < 5
         or planned_minutes > 240
+        or len(message) > 120
     ):
         raise HTTPException(422, "設定できる範囲外です")
     db.add(Reminder(
@@ -404,6 +418,7 @@ def create_reminder(
         weekday=weekday,
         minute_of_day=reminder_hour * 60 + reminder_minute,
         planned_seconds=planned_minutes * 60,
+        message=message or None,
     ))
     db.commit()
     return redirect("/reminders")

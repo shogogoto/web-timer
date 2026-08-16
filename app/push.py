@@ -89,9 +89,12 @@ def send_reminder_notification(
     planned_seconds: int,
     active: bool,
     occurrence: str,
+    message: str | None = None,
 ) -> None:
     minutes = planned_seconds // 60
-    body = "現在のタイマーを続けてください" if active else "タップしてタイマーを準備できます"
+    body = message or ("現在のタイマーを続けてください" if active else "タップしてタイマーを準備できます")
+    if message and active:
+        body = f"{message}\n現在のタイマーが実行中です"
     send_push_notification(db, user_id, {
         "type": "reminder",
         "title": f"{minutes}分の集中予定です",

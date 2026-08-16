@@ -8,7 +8,7 @@
     <p class="muted">予定時刻に通知します。タイマーは自動では開始されません。</p>
     <form class="reminder-form" method="post" action="/reminders" x-data="reminderForm()" @submit.prevent="submit($event)">
       <label>曜日
-        <select name="weekday" required>{% for label in weekday_labels %}<option value="{{ loop.index0 }}">{{ label }}曜日</option>{% endfor %}</select>
+        <select name="weekday" required><option value="-1">毎日</option>{% for label in weekday_labels %}<option value="{{ loop.index0 }}">{{ label }}曜日</option>{% endfor %}</select>
       </label>
       <label>時刻
         <span class="time-select" x-data="{ minute: 0, customMinute: false }">
@@ -31,6 +31,9 @@
         <select name="planned_minutes" required>{% for minutes in [5,10,15,30,45,60,90,120] %}<option value="{{ minutes }}">{{ minutes }}分</option>{% endfor %}</select>
       </label>
       <button class="primary" type="submit">追加</button>
+      <label class="message-field">通知メッセージ（任意）
+        <input type="text" name="notification_message" maxlength="120" placeholder="未設定なら標準メッセージを表示">
+      </label>
       <p class="error reminder-form-error" x-text="error"></p>
     </form>
   </section>
@@ -39,7 +42,7 @@
     {% if rows %}
       {% for row in rows %}
       <article class="reminder-row{% if not row.reminder.enabled %} disabled{% endif %}">
-        <div><strong>{{ row.weekday }}曜日 {{ row.time }}</strong><span>{{ row.minutes }}分</span></div>
+        <div><strong>{{ row.weekday }} {{ row.time }}</strong><span>{{ row.minutes }}分{% if row.reminder.message %} · {{ row.reminder.message }}{% endif %}</span></div>
         <div class="reminder-actions">
           <form method="post" action="/reminders/{{ row.reminder.id }}/toggle"><button type="submit">{% if row.reminder.enabled %}無効にする{% else %}有効にする{% endif %}</button></form>
           <form method="post" action="/reminders/{{ row.reminder.id }}/delete"><button class="danger" type="submit">削除</button></form>

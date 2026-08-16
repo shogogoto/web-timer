@@ -57,6 +57,7 @@ class Reminder(Base):
     weekday: Mapped[int] = mapped_column(Integer)
     minute_of_day: Mapped[int] = mapped_column(Integer)
     planned_seconds: Mapped[int] = mapped_column(Integer)
+    message: Mapped[str | None] = mapped_column(String(120))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_notified_on: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
