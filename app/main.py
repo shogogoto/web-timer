@@ -394,7 +394,7 @@ def create_reminder(
     if (
         weekday not in range(7)
         or reminder_hour not in range(24)
-        or reminder_minute not in range(0, 60, 5)
+        or reminder_minute not in range(60)
         or planned_minutes < 5
         or planned_minutes > 240
     ):

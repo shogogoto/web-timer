@@ -14,7 +14,7 @@
         <span class="time-select">
           <select name="reminder_hour" aria-label="時" required>{% for hour in range(24) %}<option value="{{ hour }}"{% if hour == 19 %} selected{% endif %}>{{ '%02d' | format(hour) }}</option>{% endfor %}</select>
           <span>:</span>
-          <select name="reminder_minute" aria-label="分" required>{% for minute in range(0, 60, 5) %}<option value="{{ minute }}">{{ '%02d' | format(minute) }}</option>{% endfor %}</select>
+          <select name="reminder_minute" aria-label="分" required>{% for minute in range(60) %}<option value="{{ minute }}">{{ '%02d' | format(minute) }}</option>{% endfor %}</select>
         </span>
       </label>
       <label>タイマー
