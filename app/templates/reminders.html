@@ -11,10 +11,20 @@
         <select name="weekday" required>{% for label in weekday_labels %}<option value="{{ loop.index0 }}">{{ label }}曜日</option>{% endfor %}</select>
       </label>
       <label>時刻
-        <span class="time-select">
+        <span class="time-select" x-data="{ minute: 0, customMinute: false }">
           <select name="reminder_hour" aria-label="時" required>{% for hour in range(24) %}<option value="{{ hour }}"{% if hour == 19 %} selected{% endif %}>{{ '%02d' | format(hour) }}</option>{% endfor %}</select>
           <span>:</span>
-          <select name="reminder_minute" aria-label="分" required>{% for minute in range(60) %}<option value="{{ minute }}">{{ '%02d' | format(minute) }}</option>{% endfor %}</select>
+          <span class="minute-choice">
+            <select aria-label="分" @change="customMinute=$event.target.value==='custom'; if(!customMinute) minute=Number($event.target.value)">
+              {% for minute in range(0, 60, 5) %}<option value="{{ minute }}">{{ '%02d' | format(minute) }}</option>{% endfor %}
+              <option value="custom">手動入力…</option>
+            </select>
+            <span class="custom-minute" x-show="customMinute" x-cloak>
+              <input type="number" min="0" max="59" inputmode="numeric" aria-label="分を手動入力" x-model.number="minute">
+              <span>分</span>
+            </span>
+            <input type="hidden" name="reminder_minute" :value="minute">
+          </span>
         </span>
       </label>
       <label>タイマー

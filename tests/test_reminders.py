@@ -8,9 +8,23 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from app.db import Base
-from app.main import collect_due_reminders, create_reminder, delete_reminder, timer_page, toggle_reminder
+from app.main import collect_due_reminders, create_reminder, delete_reminder, templates, timer_page, toggle_reminder
 from app.models import PushSubscription, Reminder, TimerSession, User
 from app.push import send_reminder_notification
+
+
+def test_reminder_minute_ui_uses_five_minute_presets_and_manual_input():
+    html = templates.env.get_template("reminders.html").render(
+        user=type("User", (), {"username": "user"})(),
+        rows=[],
+        weekday_labels=["月", "火", "水", "木", "金", "土", "日"],
+        static_version="test",
+    )
+
+    assert '<option value="55">55</option>' in html
+    assert '<option value="custom">手動入力…</option>' in html
+    assert '<option value="59">59</option>' not in html
+    assert 'name="reminder_minute"' in html
 
 
 def test_due_reminder_is_collected_once_without_changing_active_timer():
