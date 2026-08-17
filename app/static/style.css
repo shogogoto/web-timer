@@ -123,11 +123,12 @@ input, select {
 .reminder-actions { display: flex; gap: .5rem; }
 .reminder-edit-form { margin-top: 1rem; padding: 1rem; background: var(--background); border-radius: .75rem; }
 
-.activity-grid { display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
-.activity-grid { transition: opacity .18s ease, transform .18s ease; }
-.activity-grid.htmx-request { opacity: .55; pointer-events: none; }
-.activity-grid.htmx-swapping { opacity: 0; transform: translateY(.25rem); }
+.activity-grid { position: relative; display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
+.activity-grid::before { content: ""; position: absolute; z-index: 5; top: -.35rem; left: 0; width: 25%; height: 2px; opacity: 0; background: var(--primary); border-radius: 999px; pointer-events: none; }
+.activity-grid.htmx-request { pointer-events: none; }
+.activity-grid.htmx-request::before { opacity: 1; animation: activity-loading .9s ease-in-out infinite; }
 .activity-grid > * { min-width: 0; }
+@keyframes activity-loading { from { transform: translateX(0); } to { transform: translateX(300%); } }
 .summary-card { min-width: 0; padding: 1.25rem; background: var(--surface); border-radius: 1rem; box-shadow: 0 8px 30px var(--shadow); }
 .today-summary { display: grid; place-content: center; text-align: center; }
 .today-summary span { color: var(--muted); }
@@ -196,6 +197,10 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
 
 @media (prefers-color-scheme: dark) {
   button:hover { filter: brightness(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-grid.htmx-request::before { animation: none; width: 100%; }
 }
 
 @media (max-width: 700px) {
