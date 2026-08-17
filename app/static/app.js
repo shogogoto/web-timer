@@ -88,6 +88,25 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
   }
 }
 
+function activityExplorer(activityDetails, selectedDate) {
+  return {
+    activityDetails,
+    selectedDate,
+    get selectedActivity() {
+      return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[],hourly:[],ticks:[]};
+    },
+    get selectedDateLabel() {
+      const [year, month, day] = this.selectedDate.split('-').map(Number);
+      return `${month}月${day}日`;
+    },
+    formatDuration(seconds) {
+      if (seconds < 60) return `${seconds}秒`;
+      const minutes = Math.floor(seconds / 60), rest = seconds % 60;
+      return rest ? `${minutes}分${rest}秒` : `${minutes}分`;
+    }
+  }
+}
+
 function reminderForm() {
   return {
     error: '',

@@ -24,7 +24,7 @@
     <template x-if="phase === 'finished'"><div class="finished"><strong>🔔 時間になりました</strong><span>記録を保存しています</span></div></template>
     <p class="error" x-text="error"></p>
   </section>
-  <section class="activity-grid">
+  <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">
     <article class="summary-card today-summary">
       <span>今日</span><strong>{{ activity.today_minutes }}<small>分</small></strong>
     </article>

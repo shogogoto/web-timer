@@ -124,6 +124,9 @@ input, select {
 .reminder-edit-form { margin-top: 1rem; padding: 1rem; background: var(--background); border-radius: .75rem; }
 
 .activity-grid { display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
+.activity-grid { transition: opacity .18s ease, transform .18s ease; }
+.activity-grid.htmx-request { opacity: .55; pointer-events: none; }
+.activity-grid.htmx-swapping { opacity: 0; transform: translateY(.25rem); }
 .activity-grid > * { min-width: 0; }
 .summary-card { min-width: 0; padding: 1.25rem; background: var(--surface); border-radius: 1rem; box-shadow: 0 8px 30px var(--shadow); }
 .today-summary { display: grid; place-content: center; text-align: center; }
