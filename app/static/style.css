@@ -146,7 +146,9 @@ input, select {
 .monthly-summary { grid-column: 1 / -1; }
 .calendar { display: grid; grid-template-columns: repeat(7, 1fr); }
 .weekdays { margin-top: 1rem; color: var(--muted); font-size: .75rem; text-align: center; }
-.month-grid { gap: .35rem; margin-top: .4rem; }
+.month-grid { display: grid; grid-template-columns: 1fr; gap: .35rem; margin-top: .4rem; }
+.calendar-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; border-radius: .75rem; }
+.calendar-week.viewed-week { box-shadow: inset 0 0 0 2px var(--primary); }
 .calendar-day { min-height: 4.5rem; padding: .35rem; display: grid; place-items: center; align-content: space-between; color: var(--muted); background: transparent; border: 0; border-radius: .5rem; font-size: .75rem; }
 .calendar-day:hover:not(:disabled) { background: var(--control); filter: none; }
 .day-number { justify-self: start; }
@@ -212,6 +214,6 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
 @media (max-width: 400px) {
   .summary-card { padding: 1rem; }
   .week-chart { gap: .25rem; }
-  .month-grid { gap: .15rem; }
+  .month-grid, .calendar-week { gap: .15rem; }
   .calendar-day { min-height: 3.25rem; }
 }

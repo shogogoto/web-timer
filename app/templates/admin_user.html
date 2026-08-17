@@ -10,9 +10,9 @@
     </article>
     <article class="summary-card weekly-summary">
       <div class="summary-heading week-heading">
-        <a href="/admin/users/{{ account.id }}?week={{ activity.previous_week }}&month={{ activity.month_value }}" aria-label="前週">‹</a>
+        <a href="/admin/users/{{ account.id }}?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
         <h2>{{ activity.week_label }}</h2>
-        <a href="/admin/users/{{ account.id }}?week={{ activity.next_week }}&month={{ activity.month_value }}" aria-label="翌週">›</a>
+        <a href="/admin/users/{{ account.id }}?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
       </div>
       <div class="week-chart">
         {% for day in activity.week %}
@@ -30,11 +30,11 @@
       </div>
       <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
       <div class="calendar month-grid bubble-calendar">
-        {% for week in activity.month_weeks %}{% for day in week %}
+        {% for week in activity.month_weeks %}<div class="calendar-week{% if week[0].is_viewed_week %} viewed-week{% endif %}">{% for day in week %}
         <button type="button" @click="selectedDate='{{ day.date }}'" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.minutes }}分">
           <span class="day-number">{{ day.day }}</span>{% if day.has_activity %}<span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>{% endif %}
         </button>
-        {% endfor %}{% endfor %}
+        {% endfor %}</div>{% endfor %}
       </div>
       <div class="day-detail">
         <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span x-text="formatDuration(selectedActivity.seconds)"></span></div>

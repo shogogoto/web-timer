@@ -133,8 +133,11 @@ def test_activity_can_display_previous_and_next_weeks():
     assert previous["week_label"] == "8月3日〜8月9日"
     assert previous["week_start"] == "2026-08-03"
     assert previous["previous_week"] == "2026-07-27"
+    assert previous["previous_week_month"] == "2026-07"
     assert previous["next_week"] == "2026-08-10"
+    assert previous["next_week_month"] == "2026-08"
     assert previous["week"][4]["minutes"] == 20
     assert previous["week_minutes"] == 20
+    assert all(day["is_viewed_week"] for day in next(week for week in previous["month_weeks"] if week[0]["date"] == "2026-08-03"))
     assert following["week_label"] == "8月17日〜8月23日"
     assert following["week_minutes"] == 0

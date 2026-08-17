@@ -187,6 +187,8 @@ def activity_summary(
     viewed_week_date = target_week or today
     week_start = viewed_week_date - timedelta(days=viewed_week_date.weekday())
     week_end = week_start + timedelta(days=6)
+    previous_week = week_start - timedelta(days=7)
+    next_week = week_start + timedelta(days=7)
     month_start = (target_month or today).replace(day=1)
     next_month = (month_start + timedelta(days=32)).replace(day=1)
     previous_month = (month_start - timedelta(days=1)).replace(day=1)
@@ -255,6 +257,7 @@ def activity_summary(
             "bubble_size": round(8 + (daily_seconds.get(day, 0) / month_max * 28)) if daily_seconds.get(day, 0) and month_max else 7,
             "in_month": day.month == month_start.month,
             "is_today": day == today,
+            "is_viewed_week": week_start <= day <= week_end,
         } for day in dates])
 
     month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == month_start.month and day.year == month_start.year)
@@ -301,8 +304,10 @@ def activity_summary(
         "week": week,
         "week_label": "今週" if week_start == current_week_start else f"{week_start.month}月{week_start.day}日〜{week_end.month}月{week_end.day}日",
         "week_start": week_start.isoformat(),
-        "previous_week": (week_start - timedelta(days=7)).isoformat(),
-        "next_week": (week_start + timedelta(days=7)).isoformat(),
+        "previous_week": previous_week.isoformat(),
+        "previous_week_month": previous_week.strftime("%Y-%m"),
+        "next_week": next_week.isoformat(),
+        "next_week_month": next_week.strftime("%Y-%m"),
         "week_seconds": sum(daily_seconds.get(week_start + timedelta(days=i), 0) for i in range(7)),
         "week_minutes": sum(item["minutes"] for item in week),
         "month_label": f"{month_start.year}年{month_start.month}月",
