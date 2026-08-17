@@ -108,3 +108,33 @@ def test_activity_can_display_another_month():
     assert summary["previous_month"] == "2026-06"
     assert summary["next_month"] == "2026-08"
     assert summary["selected_date"] == "2026-07-01"
+
+
+def test_activity_can_display_previous_and_next_weeks():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 8, 14, 12, tzinfo=TZ)
+    with Session(engine) as db:
+        user = User(username="user", password_hash="hash", role="user")
+        db.add(user)
+        db.flush()
+        db.add(TimerSession(
+            user_id=user.id,
+            planned_seconds=1200,
+            worked_seconds=1200,
+            ended_at=datetime(2026, 8, 7, 1, tzinfo=timezone.utc),
+            status="completed",
+        ))
+        db.commit()
+
+        previous = activity_summary(db, user.id, now, target_week=datetime(2026, 8, 3).date())
+        following = activity_summary(db, user.id, now, target_week=datetime(2026, 8, 17).date())
+
+    assert previous["week_label"] == "8月3日〜8月9日"
+    assert previous["week_start"] == "2026-08-03"
+    assert previous["previous_week"] == "2026-07-27"
+    assert previous["next_week"] == "2026-08-10"
+    assert previous["week"][4]["minutes"] == 20
+    assert previous["week_minutes"] == 20
+    assert following["week_label"] == "8月17日〜8月23日"
+    assert following["week_minutes"] == 0

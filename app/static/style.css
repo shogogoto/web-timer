@@ -133,10 +133,10 @@ input, select {
 .summary-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 .summary-heading h2 { margin: 0; font-size: 1rem; font-weight: 600; }
 .summary-heading strong { color: var(--muted); font-size: .9rem; }
-.month-heading { display: grid; grid-template-columns: 2rem 1fr 2rem; align-items: center; }
-.month-heading h2 { text-align: center; }
-.month-heading a { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--text); border-radius: 50%; text-decoration: none; font-size: 1.5rem; }
-.month-heading a:hover { background: var(--control); }
+.month-heading, .week-heading { display: grid; grid-template-columns: 2rem 1fr 2rem; align-items: center; }
+.month-heading h2, .week-heading h2 { text-align: center; }
+.month-heading a, .week-heading a { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--text); border-radius: 50%; text-decoration: none; font-size: 1.5rem; }
+.month-heading a:hover, .week-heading a:hover { background: var(--control); }
 .week-chart { height: 8.5rem; display: grid; grid-template-columns: repeat(7, 1fr); gap: .45rem; margin-top: 1rem; }
 .week-day { min-width: 0; display: grid; grid-template-rows: 1rem 1fr 1.2rem; gap: .25rem; text-align: center; color: var(--muted); font-size: .75rem; }
 .week-day.current { color: var(--primary); font-weight: 700; }

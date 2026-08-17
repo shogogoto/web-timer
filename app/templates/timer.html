@@ -29,7 +29,11 @@
       <span>今日</span><strong>{{ activity.today_minutes }}<small>分</small></strong>
     </article>
     <article class="summary-card weekly-summary">
-      <div class="summary-heading"><h2>今週</h2></div>
+      <div class="summary-heading week-heading">
+        <a href="/?week={{ activity.previous_week }}&month={{ activity.month_value }}" aria-label="前週">‹</a>
+        <h2>{{ activity.week_label }}</h2>
+        <a href="/?week={{ activity.next_week }}&month={{ activity.month_value }}" aria-label="翌週">›</a>
+      </div>
       <div class="week-chart">
         {% for day in activity.week %}
         <div class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.minutes }}分">
@@ -42,9 +46,9 @@
     </article>
     <article class="summary-card monthly-summary">
       <div class="summary-heading month-heading">
-        <a href="/?month={{ activity.previous_month }}" aria-label="前月">‹</a>
+        <a href="/?month={{ activity.previous_month }}&week={{ activity.week_start }}" aria-label="前月">‹</a>
         <h2>{{ activity.month_label }}</h2>
-        <a href="/?month={{ activity.next_month }}" aria-label="翌月">›</a>
+        <a href="/?month={{ activity.next_month }}&week={{ activity.week_start }}" aria-label="翌月">›</a>
       </div>
       <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
       <div class="calendar month-grid bubble-calendar">

@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Requ
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -170,25 +170,39 @@ def totals(db: Session, user_id: int) -> dict[str, int]:
     }
 
 
-def activity_summary(db: Session, user_id: int, now: datetime | None = None, target_month=None) -> dict:
+def activity_summary(
+    db: Session,
+    user_id: int,
+    now: datetime | None = None,
+    target_month=None,
+    target_week=None,
+) -> dict:
     now = now or datetime.now(TZ)
     if now.tzinfo is None:
         now = now.replace(tzinfo=TZ)
     else:
         now = now.astimezone(TZ)
     today = now.date()
-    week_start = today - timedelta(days=today.weekday())
+    current_week_start = today - timedelta(days=today.weekday())
+    viewed_week_date = target_week or today
+    week_start = viewed_week_date - timedelta(days=viewed_week_date.weekday())
+    week_end = week_start + timedelta(days=6)
     month_start = (target_month or today).replace(day=1)
     next_month = (month_start + timedelta(days=32)).replace(day=1)
     previous_month = (month_start - timedelta(days=1)).replace(day=1)
-    query_start = min(week_start, month_start)
-    query_end = max(week_start + timedelta(days=7), next_month)
-    query_start_utc = datetime.combine(query_start, datetime.min.time(), TZ).astimezone(timezone.utc)
-    query_end_utc = datetime.combine(query_end, datetime.min.time(), TZ).astimezone(timezone.utc)
+    today_start_utc = datetime.combine(today, datetime.min.time(), TZ).astimezone(timezone.utc)
+    today_end_utc = datetime.combine(today + timedelta(days=1), datetime.min.time(), TZ).astimezone(timezone.utc)
+    week_start_utc = datetime.combine(week_start, datetime.min.time(), TZ).astimezone(timezone.utc)
+    week_end_utc = datetime.combine(week_start + timedelta(days=7), datetime.min.time(), TZ).astimezone(timezone.utc)
+    month_start_utc = datetime.combine(month_start, datetime.min.time(), TZ).astimezone(timezone.utc)
+    month_end_utc = datetime.combine(next_month, datetime.min.time(), TZ).astimezone(timezone.utc)
     sessions = db.scalars(select(TimerSession).where(
         TimerSession.user_id == user_id,
-        TimerSession.ended_at >= query_start_utc,
-        TimerSession.ended_at < query_end_utc,
+        or_(
+            and_(TimerSession.ended_at >= today_start_utc, TimerSession.ended_at < today_end_utc),
+            and_(TimerSession.ended_at >= week_start_utc, TimerSession.ended_at < week_end_utc),
+            and_(TimerSession.ended_at >= month_start_utc, TimerSession.ended_at < month_end_utc),
+        ),
         TimerSession.status.in_(["completed", "stopped"]),
     )).all()
     daily_seconds: dict = {}
@@ -285,9 +299,14 @@ def activity_summary(db: Session, user_id: int, now: datetime | None = None, tar
         "today_seconds": daily_seconds.get(today, 0),
         "today_minutes": daily_seconds.get(today, 0) // 60,
         "week": week,
+        "week_label": "今週" if week_start == current_week_start else f"{week_start.month}月{week_start.day}日〜{week_end.month}月{week_end.day}日",
+        "week_start": week_start.isoformat(),
+        "previous_week": (week_start - timedelta(days=7)).isoformat(),
+        "next_week": (week_start + timedelta(days=7)).isoformat(),
         "week_seconds": sum(daily_seconds.get(week_start + timedelta(days=i), 0) for i in range(7)),
         "week_minutes": sum(item["minutes"] for item in week),
         "month_label": f"{month_start.year}年{month_start.month}月",
+        "month_value": month_start.strftime("%Y-%m"),
         "previous_month": previous_month.strftime("%Y-%m"),
         "next_month": next_month.strftime("%Y-%m"),
         "month_seconds": month_seconds,
@@ -330,6 +349,7 @@ def logout(request: Request):
 def timer_page(
     request: Request,
     month: str | None = None,
+    week: str | None = None,
     reminder: int | None = None,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
@@ -344,6 +364,12 @@ def timer_page(
             target_month = datetime.strptime(month, "%Y-%m").date()
         except ValueError:
             target_month = None
+    target_week = None
+    if week:
+        try:
+            target_week = datetime.strptime(week, "%Y-%m-%d").date()
+        except ValueError:
+            target_week = None
     default_seconds = last_planned_seconds(db, user.id, ALLOW_SHORT_TIMERS)
     reminder_minutes = None
     if reminder is not None and session is None:
@@ -359,7 +385,7 @@ def timer_page(
             "state": state,
             "default_seconds": default_seconds,
             "reminder_minutes": reminder_minutes,
-            "activity": activity_summary(db, user.id, target_month=target_month),
+            "activity": activity_summary(db, user.id, target_month=target_month, target_week=target_week),
             "allow_short_timers": ALLOW_SHORT_TIMERS,
         },
     )
@@ -607,6 +633,7 @@ def admin_user_activity(
     request: Request,
     user_id: int,
     month: str | None = None,
+    week: str | None = None,
     _: User = Depends(admin_user),
     db: Session = Depends(get_db),
 ):
@@ -619,11 +646,17 @@ def admin_user_activity(
             target_month = datetime.strptime(month, "%Y-%m").date()
         except ValueError:
             pass
-    activity = activity_summary(db, account.id, target_month=target_month)
+    target_week = None
+    if week:
+        try:
+            target_week = datetime.strptime(week, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    activity = activity_summary(db, account.id, target_month=target_month, target_week=target_week)
     report_text = "\n".join([
         f"{account.username} 集中時間",
         f"今日: {format_duration_ja(activity['today_seconds'])}",
-        f"今週: {format_duration_ja(activity['week_seconds'])}",
+        f"{activity['week_label']}: {format_duration_ja(activity['week_seconds'])}",
         f"{activity['month_label']}: {format_duration_ja(activity['month_seconds'])}",
         f"完了: {activity['month_completed']}回",
         f"途中終了: {activity['month_stopped']}回",
