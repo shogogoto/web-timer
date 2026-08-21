@@ -36,6 +36,21 @@ class TimerSession(Base):
     status: Mapped[str] = mapped_column(String(16), default="ready")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     user: Mapped[User] = relationship(back_populates="sessions")
+    work_segments: Mapped[list["WorkSegment"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="WorkSegment.started_at",
+    )
+
+
+class WorkSegment(Base):
+    __tablename__ = "work_segments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    session: Mapped[TimerSession] = relationship(back_populates="work_segments")
 
 
 class PushSubscription(Base):

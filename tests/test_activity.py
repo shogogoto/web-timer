@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.main import TZ, activity_summary, format_duration_ja
-from app.models import TimerSession, User
+from app.main import TZ, activity_summary, format_duration_ja, totals
+from app.models import TimerSession, User, WorkSegment
 
 
 def test_activity_is_grouped_by_day_for_one_user():
@@ -38,8 +38,8 @@ def test_activity_is_grouped_by_day_for_one_user():
     assert summary["month_weeks"][1][0]["has_activity"] is False
     assert next(day for week in summary["month_weeks"] for day in week if day["date"] == "2026-08-14")["has_activity"] is True
     assert summary["details"]["2026-08-14"]["seconds"] == 1800
-    assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "08"
-    assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "13"
+    assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "07"
+    assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "12"
     assert len(summary["details"]["2026-08-14"]["hourly"]) == 1
     assert summary["details"]["2026-08-14"]["hourly"][0]["seconds"] == 1800
 
@@ -141,3 +141,80 @@ def test_activity_can_display_previous_and_next_weeks():
     assert all(day["is_viewed_week"] for day in next(week for week in previous["month_weeks"] if week[0]["date"] == "2026-08-03"))
     assert following["week_label"] == "8月17日〜8月23日"
     assert following["week_minutes"] == 0
+
+
+def test_work_segments_are_split_across_hours_and_pause_is_excluded():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 8, 14, 13, tzinfo=TZ)
+    with Session(engine) as db:
+        user = User(username="user", password_hash="hash", role="user")
+        db.add(user)
+        db.flush()
+        session = TimerSession(
+            user_id=user.id,
+            planned_seconds=3000,
+            worked_seconds=3000,
+            started_at=datetime(2026, 8, 14, 1, 50, tzinfo=timezone.utc),
+            ended_at=datetime(2026, 8, 14, 3, 10, tzinfo=timezone.utc),
+            paused_seconds=1800,
+            status="completed",
+        )
+        db.add(session)
+        db.flush()
+        db.add_all([
+            WorkSegment(
+                session_id=session.id,
+                started_at=datetime(2026, 8, 14, 1, 50, tzinfo=timezone.utc),
+                ended_at=datetime(2026, 8, 14, 2, 10, tzinfo=timezone.utc),
+            ),
+            WorkSegment(
+                session_id=session.id,
+                started_at=datetime(2026, 8, 14, 2, 40, tzinfo=timezone.utc),
+                ended_at=datetime(2026, 8, 14, 3, 10, tzinfo=timezone.utc),
+            ),
+        ])
+        db.commit()
+
+        summary = activity_summary(db, user.id, now)
+        overview = totals(db, user.id, now)
+
+    hourly = {bucket["hour"]: bucket for bucket in summary["details"]["2026-08-14"]["hourly"]}
+    assert summary["today_seconds"] == 3000
+    assert {hour: bucket["seconds"] for hour, bucket in hourly.items()} == {10: 600, 11: 1800, 12: 600}
+    assert all(bucket["completed"] == 1 for bucket in hourly.values())
+    assert overview["today_seconds"] == 3000
+    assert overview["week_seconds"] == 3000
+
+
+def test_work_segment_crossing_midnight_is_split_between_days():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 8, 15, 12, tzinfo=TZ)
+    with Session(engine) as db:
+        user = User(username="user", password_hash="hash", role="user")
+        db.add(user)
+        db.flush()
+        session = TimerSession(
+            user_id=user.id,
+            planned_seconds=1200,
+            worked_seconds=1200,
+            started_at=datetime(2026, 8, 14, 14, 50, tzinfo=timezone.utc),
+            ended_at=datetime(2026, 8, 14, 15, 10, tzinfo=timezone.utc),
+            status="completed",
+        )
+        db.add(session)
+        db.flush()
+        db.add(WorkSegment(
+            session_id=session.id,
+            started_at=session.started_at,
+            ended_at=session.ended_at,
+        ))
+        db.commit()
+
+        summary = activity_summary(db, user.id, now)
+
+    assert summary["details"]["2026-08-14"]["seconds"] == 600
+    assert summary["details"]["2026-08-15"]["seconds"] == 600
+    assert summary["today_seconds"] == 600
+    assert summary["month_seconds"] == 1200

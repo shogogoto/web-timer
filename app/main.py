@@ -11,13 +11,13 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Requ
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import admin_user, bootstrap_admin, current_user, hash_password, verify_password
 from .db import Base, SessionLocal, engine, get_db
-from .models import PushSubscription, Reminder, TimerSession, User
+from .models import PushSubscription, Reminder, TimerSession, User, WorkSegment
 from .push import (
     application_server_key,
     ensure_vapid_key,
@@ -68,6 +68,7 @@ async def notification_loop() -> None:
                     session.worked_seconds = session.planned_seconds
                     session.ended_at = now
                     session.status = "completed"
+                    close_work_segment(db, session, now, session.planned_seconds)
                     completed_user_ids.append(session.user_id)
             reminder_notifications = collect_due_reminders(db, now)
             db.commit()
@@ -117,6 +118,53 @@ def active_session(db: Session, user_id: int) -> TimerSession | None:
     ).first()
 
 
+def open_work_segment(db: Session, session: TimerSession, started_at: datetime) -> None:
+    existing = db.scalars(select(WorkSegment).where(
+        WorkSegment.session_id == session.id,
+        WorkSegment.ended_at.is_(None),
+    )).first()
+    if existing is None:
+        db.add(WorkSegment(session_id=session.id, started_at=started_at))
+
+
+def segment_seconds(segment: WorkSegment) -> int:
+    if segment.ended_at is None:
+        return 0
+    started_at = segment.started_at
+    ended_at = segment.ended_at
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    if ended_at.tzinfo is None:
+        ended_at = ended_at.replace(tzinfo=timezone.utc)
+    return max(0, int((ended_at - started_at).total_seconds()))
+
+
+def close_work_segment(
+    db: Session,
+    session: TimerSession,
+    ended_at: datetime,
+    target_worked_seconds: int | None = None,
+) -> None:
+    segment = db.scalars(select(WorkSegment).where(
+        WorkSegment.session_id == session.id,
+        WorkSegment.ended_at.is_(None),
+    ).order_by(WorkSegment.id.desc())).first()
+    if segment is None:
+        return
+    if target_worked_seconds is not None:
+        closed_segments = db.scalars(select(WorkSegment).where(
+            WorkSegment.session_id == session.id,
+            WorkSegment.id != segment.id,
+            WorkSegment.ended_at.is_not(None),
+        )).all()
+        remaining = max(0, target_worked_seconds - sum(segment_seconds(item) for item in closed_segments))
+        started_at = segment.started_at
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        ended_at = min(ended_at, started_at + timedelta(seconds=remaining))
+    segment.ended_at = ended_at
+
+
 def collect_due_reminders(db: Session, now: datetime) -> list[dict]:
     local_now = now.astimezone(TZ)
     today = local_now.date()
@@ -148,20 +196,10 @@ def last_planned_seconds(db: Session, user_id: int, allow_short: bool = False) -
     return planned_seconds or 40 * 60
 
 
-def totals(db: Session, user_id: int) -> dict[str, int]:
-    now = datetime.now(TZ)
-    today = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
-    week = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
-
-    def total(since: datetime) -> int:
-        return db.scalar(select(func.coalesce(func.sum(TimerSession.worked_seconds), 0)).where(
-            TimerSession.user_id == user_id,
-            TimerSession.ended_at >= since,
-            TimerSession.status.in_(["completed", "stopped"]),
-        )) or 0
-
-    today_seconds = total(today)
-    week_seconds = total(week)
+def totals(db: Session, user_id: int, now: datetime | None = None) -> dict[str, int]:
+    summary = activity_summary(db, user_id, now=now)
+    today_seconds = summary["today_seconds"]
+    week_seconds = summary["week_seconds"]
     return {
         "today": today_seconds // 60,
         "week": week_seconds // 60,
@@ -198,17 +236,38 @@ def activity_summary(
     week_end_utc = datetime.combine(week_start + timedelta(days=7), datetime.min.time(), TZ).astimezone(timezone.utc)
     month_start_utc = datetime.combine(month_start, datetime.min.time(), TZ).astimezone(timezone.utc)
     month_end_utc = datetime.combine(next_month, datetime.min.time(), TZ).astimezone(timezone.utc)
+    ranges = sorted([
+        (today_start_utc, today_end_utc),
+        (week_start_utc, week_end_utc),
+        (month_start_utc, month_end_utc),
+    ])
+    merged_ranges: list[tuple[datetime, datetime]] = []
+    for range_start, range_end in ranges:
+        if merged_ranges and range_start <= merged_ranges[-1][1]:
+            merged_ranges[-1] = (merged_ranges[-1][0], max(merged_ranges[-1][1], range_end))
+        else:
+            merged_ranges.append((range_start, range_end))
+    period_filter = or_(*(
+        and_(TimerSession.ended_at >= range_start, TimerSession.ended_at < range_end)
+        for range_start, range_end in merged_ranges
+    ))
     sessions = db.scalars(select(TimerSession).where(
         TimerSession.user_id == user_id,
-        or_(
-            and_(TimerSession.ended_at >= today_start_utc, TimerSession.ended_at < today_end_utc),
-            and_(TimerSession.ended_at >= week_start_utc, TimerSession.ended_at < week_end_utc),
-            and_(TimerSession.ended_at >= month_start_utc, TimerSession.ended_at < month_end_utc),
-        ),
+        period_filter,
         TimerSession.status.in_(["completed", "stopped"]),
     )).all()
     daily_seconds: dict = {}
     daily_details: dict = {}
+
+    def detail_for(day) -> dict:
+        return daily_details.setdefault(day.isoformat(), {
+            "seconds": 0,
+            "completed": 0,
+            "stopped": 0,
+            "sessions": set(),
+            "hourly": {},
+        })
+
     for session in sessions:
         ended_at = session.ended_at
         if ended_at is None:
@@ -216,20 +275,85 @@ def activity_summary(
         if ended_at.tzinfo is None:
             ended_at = ended_at.replace(tzinfo=timezone.utc)
         day = ended_at.astimezone(TZ).date()
-        daily_seconds[day] = daily_seconds.get(day, 0) + session.worked_seconds
-        started_at = session.started_at or session.ended_at
-        if started_at is not None and started_at.tzinfo is None:
-            started_at = started_at.replace(tzinfo=timezone.utc)
-        local_start = started_at.astimezone(TZ) if started_at is not None else ended_at.astimezone(TZ)
-        detail = daily_details.setdefault(day.isoformat(), {"seconds": 0, "completed": 0, "stopped": 0, "sessions": []})
-        detail["seconds"] += session.worked_seconds
+        detail = detail_for(day)
         detail[session.status] += 1
-        detail["sessions"].append({
-            "time": local_start.strftime("%H:%M"),
-            "start_minute": local_start.hour * 60 + local_start.minute,
-            "seconds": session.worked_seconds,
-            "status": session.status,
-        })
+
+    def add_interval(started_at: datetime, ended_at: datetime, status: str, session_id: int) -> None:
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        if ended_at.tzinfo is None:
+            ended_at = ended_at.replace(tzinfo=timezone.utc)
+        if ended_at <= started_at:
+            return
+        local_start = started_at.astimezone(TZ)
+        local_end = ended_at.astimezone(TZ)
+        chunks = []
+        cursor = local_start
+        while cursor < local_end:
+            hour_end = cursor.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            chunk_end = min(local_end, hour_end)
+            chunks.append([cursor.date(), cursor.hour, max(0, int((chunk_end - cursor).total_seconds()))])
+            cursor = chunk_end
+        expected_seconds = max(0, int((ended_at - started_at).total_seconds()))
+        if chunks:
+            chunks[-1][2] += expected_seconds - sum(chunk[2] for chunk in chunks)
+        for day, hour, seconds in chunks:
+            if seconds <= 0:
+                continue
+            daily_seconds[day] = daily_seconds.get(day, 0) + seconds
+            detail = detail_for(day)
+            detail["seconds"] += seconds
+            detail["sessions"].add(session_id)
+            bucket = detail["hourly"].setdefault(hour, {
+                "hour": hour,
+                "seconds": 0,
+                "completed_sessions": set(),
+                "stopped_sessions": set(),
+            })
+            bucket["seconds"] += seconds
+            bucket[f"{status}_sessions"].add(session_id)
+
+    segment_period_filter = or_(*(
+        and_(WorkSegment.started_at < range_end, WorkSegment.ended_at > range_start)
+        for range_start, range_end in merged_ranges
+    ))
+    segment_rows = db.execute(select(WorkSegment, TimerSession.status).join(
+        TimerSession, TimerSession.id == WorkSegment.session_id,
+    ).where(
+        TimerSession.user_id == user_id,
+        TimerSession.status.in_(["completed", "stopped"]),
+        WorkSegment.ended_at.is_not(None),
+        segment_period_filter,
+    )).all()
+    for segment, status in segment_rows:
+        segment_start = segment.started_at
+        segment_end = segment.ended_at
+        if segment_start.tzinfo is None:
+            segment_start = segment_start.replace(tzinfo=timezone.utc)
+        if segment_end.tzinfo is None:
+            segment_end = segment_end.replace(tzinfo=timezone.utc)
+        for range_start, range_end in merged_ranges:
+            clipped_start = max(segment_start, range_start)
+            clipped_end = min(segment_end, range_end)
+            if clipped_start < clipped_end:
+                add_interval(clipped_start, clipped_end, status, segment.session_id)
+
+    session_ids = [session.id for session in sessions]
+    recorded_session_ids = set(db.scalars(select(WorkSegment.session_id).where(
+        WorkSegment.session_id.in_(session_ids),
+    )).all()) if session_ids else set()
+    for session in sessions:
+        if session.id in recorded_session_ids or not session.ended_at or session.worked_seconds <= 0:
+            continue
+        legacy_end = session.ended_at
+        if legacy_end.tzinfo is None:
+            legacy_end = legacy_end.replace(tzinfo=timezone.utc)
+        legacy_start = legacy_end - timedelta(seconds=session.worked_seconds)
+        for range_start, range_end in merged_ranges:
+            clipped_start = max(legacy_start, range_start)
+            clipped_end = min(legacy_end, range_end)
+            if clipped_start < clipped_end:
+                add_interval(clipped_start, clipped_end, session.status, session.id)
 
     weekday_labels = ["月", "火", "水", "木", "金", "土", "日"]
     week = []
@@ -265,13 +389,7 @@ def activity_summary(
     month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     for detail in daily_details.values():
-        hourly: dict = {}
-        for session in detail["sessions"]:
-            hour = session["start_minute"] // 60
-            bucket = hourly.setdefault(hour, {"hour": hour, "seconds": 0, "completed": 0, "stopped": 0})
-            bucket["seconds"] += session["seconds"]
-            bucket[session["status"]] += 1
-        hourly_items = list(hourly.values())
+        hourly_items = list(detail["hourly"].values())
         maximum = max((bucket["seconds"] for bucket in hourly_items), default=0)
         first_hour = min((bucket["hour"] for bucket in hourly_items), default=0)
         last_hour = max((bucket["hour"] for bucket in hourly_items), default=0)
@@ -294,10 +412,12 @@ def activity_summary(
             bucket["label"] = f"{bucket['hour']:02d}:00–{bucket['hour']:02d}:59"
             bucket["left"] = round((bucket["hour"] - axis_start + 0.5) / axis_span * 100, 2)
             bucket["height"] = round(bucket["seconds"] / maximum * 100) if maximum else 0
+            bucket["completed"] = len(bucket.pop("completed_sessions"))
+            bucket["stopped"] = len(bucket.pop("stopped_sessions"))
             bucket["only_stopped"] = bucket["completed"] == 0
         hourly_items.sort(key=lambda bucket: bucket["hour"])
         detail["hourly"] = hourly_items
-        detail["sessions"].sort(key=lambda session: session["time"])
+        detail["sessions"] = sorted(detail["sessions"])
     return {
         "today_seconds": daily_seconds.get(today, 0),
         "today_minutes": daily_seconds.get(today, 0) // 60,
@@ -519,6 +639,8 @@ def set_timer(planned_seconds: int = Form(), user: User = Depends(current_user),
         status="running",
     )
     db.add(session)
+    db.flush()
+    open_work_segment(db, session, session.started_at)
     db.commit()
     return {"id": session.id, "status": session.status, "remaining": planned_seconds}
 
@@ -537,6 +659,7 @@ def start(session_id: int, user: User = Depends(current_user), db: Session = Dep
         raise HTTPException(409)
     session.started_at = datetime.now(timezone.utc)
     session.status = "running"
+    open_work_segment(db, session, session.started_at)
     db.commit()
     return {"status": session.status, "remaining": session.planned_seconds}
 
@@ -548,6 +671,7 @@ def pause(session_id: int, user: User = Depends(current_user), db: Session = Dep
         raise HTTPException(409)
     session.pause_started_at = datetime.now(timezone.utc)
     session.status = "paused"
+    close_work_segment(db, session, session.pause_started_at)
     db.commit()
     return {"status": session.status, "remaining": remaining_seconds(session)}
 
@@ -564,6 +688,7 @@ def resume(session_id: int, user: User = Depends(current_user), db: Session = De
     session.paused_seconds += max(0, int((now - paused_at).total_seconds()))
     session.pause_started_at = None
     session.status = "running"
+    open_work_segment(db, session, now)
     db.commit()
     return {"status": session.status, "remaining": remaining_seconds(session, now)}
 
@@ -580,6 +705,7 @@ def finish(session_id: int, background_tasks: BackgroundTasks, user: User = Depe
     session.ended_at = now
     session.pause_started_at = None
     session.status = "completed" if session.worked_seconds >= session.planned_seconds else "stopped"
+    close_work_segment(db, session, now, session.worked_seconds)
     db.commit()
     if session.status == "completed":
         background_tasks.add_task(send_timer_notification_async, SessionLocal, user.id)
