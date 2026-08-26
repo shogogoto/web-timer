@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.main import STATIC_VERSION, templates
 
 
@@ -15,3 +17,13 @@ def test_activity_navigation_uses_partial_htmx_updates():
         assert 'id="activity-grid"' in source
         assert 'hx-select="#activity-grid"' in source
         assert 'hx-push-url="true"' in source
+
+
+def test_timer_exposes_keyboard_controls_without_interfering_with_forms():
+    template = templates.env.loader.get_source(templates.env, "timer.html")[0]
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    assert '@keydown.window="handleTimerHotkey($event)"' in template
+    assert "event.repeat" in script
+    assert "target.closest('input, textarea, select, button, a')" in script
+    assert "this.phase === 'running'" in script and "await this.pause()" in script
+    assert "this.phase === 'paused'" in script and "await this.resume()" in script

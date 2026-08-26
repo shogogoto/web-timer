@@ -45,7 +45,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     remaining: initial ? initial.remaining : defaultSeconds,
     phase: initial ? initial.status : 'select',
     sessionId: initial ? initial.id : null,
-    error: '', copyStatus: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false,
+    error: '', copyStatus: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false, hotkeyPending: false,
     activityDetails, selectedDate: todayDate,
     get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
     get selectedActivity() { return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[],hourly:[],ticks:[]} },
@@ -66,6 +66,24 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
       }
     },
     init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); },
+    async handleTimerHotkey(event) {
+      if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+      if (event.key !== ' ' && event.key !== 'Enter') return;
+      const target = event.target;
+      if (target instanceof Element && (target.isContentEditable || target.closest('input, textarea, select, button, a'))) return;
+      if (!['select', 'ready', 'running', 'paused'].includes(this.phase)) return;
+      event.preventDefault();
+      if (this.hotkeyPending) return;
+      this.hotkeyPending = true;
+      try {
+        if (this.phase === 'select') await this.setTimer();
+        else if (this.phase === 'ready') await this.start();
+        else if (this.phase === 'running') await this.pause();
+        else if (this.phase === 'paused') await this.resume();
+      } finally {
+        this.hotkeyPending = false;
+      }
+    },
     async request(path, body) {
       const options = {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}};
       if (body) options.body = new URLSearchParams(body);

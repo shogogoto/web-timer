@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.main import TZ, activity_summary, format_duration_ja, totals
+from app.main import TZ, activity_summary, format_duration_ja, format_hours_minutes, totals
 from app.models import TimerSession, User, WorkSegment
 
 
@@ -48,6 +48,13 @@ def test_report_duration_keeps_seconds():
     assert format_duration_ja(0) == "0秒"
     assert format_duration_ja(2043) == "34分3秒"
     assert format_duration_ja(7500) == "2時間5分"
+
+
+def test_daily_duration_is_formatted_in_hours_and_minutes():
+    assert format_hours_minutes(0) == "0分"
+    assert format_hours_minutes(3599) == "59分"
+    assert format_hours_minutes(3600) == "1時間"
+    assert format_hours_minutes(7500) == "2時間5分"
 
 
 def test_week_chart_hides_activity_under_one_minute():

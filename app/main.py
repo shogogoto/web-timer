@@ -110,6 +110,17 @@ def format_duration_ja(seconds: int) -> str:
     return "".join(parts)
 
 
+def format_hours_minutes(seconds: int) -> str:
+    total_minutes = seconds // 60
+    hours, minutes = divmod(total_minutes, 60)
+    if hours:
+        return f"{hours}時間{minutes}分" if minutes else f"{hours}時間"
+    return f"{minutes}分"
+
+
+templates.env.globals["format_hours_minutes"] = format_hours_minutes
+
+
 def active_session(db: Session, user_id: int) -> TimerSession | None:
     return db.scalars(
         select(TimerSession)
