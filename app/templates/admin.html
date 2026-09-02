@@ -5,7 +5,7 @@
   {% if request.query_params.get('password_reset') %}<p class="notice" role="status">パスワードを再設定しました。</p>{% endif %}
   <section class="card">
     <div class="table-scroll"><table><thead><tr><th>利用者</th><th>今日</th><th>今週</th><th>パスワード</th></tr></thead><tbody>
-      {% for row in rows %}<tr><td><a class="user-link" href="/admin/users/{{ row.user.id }}">{{ row.user.username }}</a></td><td>{{ format_hours_minutes(row.today_seconds) }}</td><td>{{ row.week_seconds // 60 }}分 {{ row.week_seconds % 60 }}秒</td><td>
+      {% for row in rows %}<tr><td><a class="user-link" href="/admin/users/{{ row.user.id }}">{{ row.user.username }}</a></td><td>{{ format_duration_ja(row.today_seconds) }}</td><td>{{ format_duration_ja(row.week_seconds) }}</td><td>
         <details class="password-reset"><summary>再設定</summary><form method="post" action="/admin/users/{{ row.user.id }}/password"><input type="password" name="password" placeholder="新しいパスワード" autocomplete="new-password" minlength="8" required><button>設定</button></form></details>
       </td></tr>{% else %}<tr><td colspan="4">利用者はまだいません</td></tr>{% endfor %}
     </tbody></table>

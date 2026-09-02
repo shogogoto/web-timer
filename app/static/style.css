@@ -139,6 +139,7 @@ input, select {
 .summary-heading strong { color: var(--muted); font-size: .9rem; }
 .month-heading, .week-heading { display: grid; grid-template-columns: 2rem 1fr 2rem; align-items: center; }
 .month-heading h2, .week-heading h2 { text-align: center; }
+.week-heading h2 small { margin-left: .35rem; color: var(--muted); font-size: .68rem; font-weight: 400; white-space: nowrap; }
 .month-heading a, .week-heading a { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--text); border-radius: 50%; text-decoration: none; font-size: 1.5rem; }
 .month-heading a:hover, .week-heading a:hover { background: var(--control); }
 .week-chart { height: 8.5rem; display: grid; grid-template-columns: repeat(7, 1fr); gap: .45rem; margin-top: 1rem; }
@@ -164,6 +165,7 @@ input, select {
 .calendar-day.selected { background: var(--control); }
 .detail-heading { display: flex; justify-content: space-between; align-items: baseline; }
 .detail-heading span { color: var(--muted); }
+.detail-heading b { color: var(--text); font-variant-numeric: tabular-nums; }
 .timeline-chart { max-width: 100%; overflow-x: auto; margin: 1rem 0 0; padding: 1.4rem 0 1.5rem; }
 .timeline-plot { position: relative; min-width: 32rem; height: 9rem; border-bottom: 1px solid var(--border); background: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), var(--border) 25%); }
 .timeline-gridline { position: absolute; inset: 0 auto 0; width: 0; }

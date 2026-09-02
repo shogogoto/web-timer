@@ -54,3 +54,14 @@ def test_daily_activity_appears_before_week_and_is_selectable_from_charts():
         assert source.index('id="daily-activity"') < source.index('class="summary-card weekly-summary"')
         assert "@click=\"selectDate('{{ day.date }}', true)\"" in source
     assert "document.getElementById('daily-activity')?.scrollIntoView" in script
+
+
+def test_activity_durations_use_context_appropriate_formats():
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    for template_name in ("timer.html", "admin_user.html"):
+        source = templates.env.loader.get_source(templates.env, template_name)[0]
+        assert "合計 <b x-text=\"formatClockDuration(selectedActivity.seconds)\"" in source
+        assert '<span class="bar-value">{{ day.duration }}</span>' in source
+        assert "format_hours_minutes(activity.month_seconds)" in source
+    assert "formatClockDuration(seconds)" in script
+    assert "padStart(2, '0')).join(':')" in script

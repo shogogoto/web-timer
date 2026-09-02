@@ -4,7 +4,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.main import TZ, activity_summary, format_duration_ja, format_hours_minutes, totals
+from app.main import (
+    TZ,
+    activity_summary,
+    format_duration_ja,
+    format_hours_colon_minutes,
+    format_hours_minutes,
+    totals,
+)
 from app.models import TimerSession, User, WorkSegment
 
 
@@ -57,6 +64,13 @@ def test_daily_duration_is_formatted_in_hours_and_minutes():
     assert format_hours_minutes(7500) == "2時間5分"
 
 
+def test_week_duration_is_formatted_as_hours_and_minutes():
+    assert format_hours_colon_minutes(0) == "0:00"
+    assert format_hours_colon_minutes(3599) == "0:59"
+    assert format_hours_colon_minutes(3600) == "1:00"
+    assert format_hours_colon_minutes(17940) == "4:59"
+
+
 def test_week_chart_hides_activity_under_one_minute():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
@@ -86,8 +100,12 @@ def test_week_chart_hides_activity_under_one_minute():
         summary = activity_summary(db, user.id, now)
 
     assert summary["week"][4]["minutes"] == 0
+    assert summary["week"][4]["duration"] == "0:00"
     assert summary["week"][4]["percent"] == 0
     assert summary["week"][3]["minutes"] == 1
+    assert summary["week"][3]["date"] == "2026-08-13"
+    assert summary["week"][3]["duration"] == "0:01"
+    assert summary["week"][3]["duration_long"] == "1分"
     assert summary["week"][3]["percent"] == 100
 
 

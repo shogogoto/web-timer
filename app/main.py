@@ -118,7 +118,14 @@ def format_hours_minutes(seconds: int) -> str:
     return f"{minutes}分"
 
 
+def format_hours_colon_minutes(seconds: int) -> str:
+    total_minutes = seconds // 60
+    hours, minutes = divmod(total_minutes, 60)
+    return f"{hours}:{minutes:02d}"
+
+
 templates.env.globals["format_hours_minutes"] = format_hours_minutes
+templates.env.globals["format_duration_ja"] = format_duration_ja
 
 
 def active_session(db: Session, user_id: int) -> TimerSession | None:
@@ -375,8 +382,10 @@ def activity_summary(
         minutes = seconds // 60
         week.append({
             "label": label,
-            "date": day.day,
+            "date": day.isoformat(),
             "minutes": minutes,
+            "duration": format_hours_colon_minutes(seconds),
+            "duration_long": format_hours_minutes(seconds),
             "percent": round(minutes / week_max_minutes * 100) if week_max_minutes else 0,
             "is_today": day == today,
         })
@@ -388,6 +397,7 @@ def activity_summary(
             "day": day.day,
             "date": day.isoformat(),
             "minutes": daily_seconds.get(day, 0) // 60,
+            "duration": format_hours_minutes(daily_seconds.get(day, 0)),
             "has_activity": daily_seconds.get(day, 0) > 0,
             "bubble_size": round(8 + (daily_seconds.get(day, 0) / month_max * 28)) if daily_seconds.get(day, 0) and month_max else 7,
             "in_month": day.month == month_start.month,
