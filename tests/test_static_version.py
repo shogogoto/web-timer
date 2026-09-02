@@ -38,3 +38,10 @@ def test_timer_favicon_tracks_remaining_ratio_and_can_be_restored():
     assert "remainingSeconds / plannedSeconds" in script
     assert "drawTimerFavicon(this.remaining, this.plannedSeconds)" in script
     assert "restoreDefaultFavicon()" in script
+
+
+def test_viewed_week_uses_background_instead_of_an_outline():
+    style = (Path(templates.env.loader.searchpath[0]).parent / "static" / "style.css").read_text()
+    rule = style.split(".calendar-week.viewed-week", 1)[1].split("}", 1)[0]
+    assert "background: var(--week-highlight)" in rule
+    assert "box-shadow" not in rule
