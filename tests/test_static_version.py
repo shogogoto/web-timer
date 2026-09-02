@@ -17,6 +17,7 @@ def test_activity_navigation_uses_partial_htmx_updates():
         assert 'id="activity-grid"' in source
         assert 'hx-select="#activity-grid"' in source
         assert 'hx-push-url="true"' in source
+        assert 'class="summary-card today-summary"' not in source
 
 
 def test_timer_exposes_keyboard_controls_without_interfering_with_forms():

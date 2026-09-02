@@ -125,17 +125,13 @@ input, select {
 .reminder-actions { display: flex; gap: .5rem; }
 .reminder-edit-form { margin-top: 1rem; padding: 1rem; background: var(--background); border-radius: .75rem; }
 
-.activity-grid { position: relative; display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; margin-top: 1rem; }
+.activity-grid { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
 .activity-grid::before { content: ""; position: absolute; z-index: 5; top: -.35rem; left: 0; width: 25%; height: 2px; opacity: 0; background: var(--primary); border-radius: 999px; pointer-events: none; }
 .activity-grid.htmx-request { pointer-events: none; }
 .activity-grid.htmx-request::before { opacity: 1; animation: activity-loading .9s ease-in-out infinite; }
 .activity-grid > * { min-width: 0; }
 @keyframes activity-loading { from { transform: translateX(0); } to { transform: translateX(300%); } }
 .summary-card { min-width: 0; padding: 1.25rem; background: var(--surface); border-radius: 1rem; box-shadow: 0 8px 30px var(--shadow); }
-.today-summary { display: grid; place-content: center; text-align: center; }
-.today-summary span { color: var(--muted); }
-.today-summary strong { white-space: nowrap; font-size: clamp(1.35rem, 3vw, 2rem); }
-.today-summary small { margin-left: .2rem; font-size: .85rem; color: var(--muted); }
 .summary-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 .summary-heading h2 { margin: 0; font-size: 1rem; font-weight: 600; }
 .summary-heading strong { color: var(--muted); font-size: .9rem; }
@@ -149,7 +145,6 @@ input, select {
 .bar-track { position: relative; overflow: hidden; background: var(--control); border-radius: .3rem .3rem .15rem .15rem; }
 .bar { position: absolute; inset: auto 0 0; background: var(--primary); border-radius: .3rem .3rem .15rem .15rem; }
 .bar-value { overflow: hidden; text-overflow: ellipsis; }
-.monthly-summary { grid-column: 1 / -1; }
 .calendar { display: grid; grid-template-columns: repeat(7, 1fr); }
 .weekdays { margin-top: 1rem; color: var(--muted); font-size: .75rem; text-align: center; }
 .month-grid { display: grid; grid-template-columns: 1fr; gap: .35rem; margin-top: .4rem; }
@@ -209,9 +204,7 @@ th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border
   .timer-shell, .admin-shell { padding: .75rem; }
   .timer-card { padding: 1rem; }
   .presets { flex-wrap: wrap; }
-  .activity-grid { grid-template-columns: 1fr; }
-  .today-summary { min-height: 7rem; }
-  .monthly-summary { grid-column: auto; padding: 1rem; }
+  .monthly-summary { padding: 1rem; }
   .calendar-day { min-height: 3.5rem; padding: .25rem; }
   .activity-stats { grid-template-columns: 1fr; gap: .75rem; }
   .login { margin: 8vh 1rem; }

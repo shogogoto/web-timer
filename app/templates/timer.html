@@ -26,9 +26,6 @@
     <p class="error" x-text="error"></p>
   </section>
   <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">
-    <article class="summary-card today-summary">
-      <span>今日</span><strong>{{ format_hours_minutes(activity.today_seconds) }}</strong>
-    </article>
     <article class="summary-card weekly-summary">
       <div class="summary-heading week-heading">
         <a href="/?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
