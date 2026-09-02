@@ -26,36 +26,7 @@
     <p class="error" x-text="error"></p>
   </section>
   <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">
-    <article class="summary-card weekly-summary">
-      <div class="summary-heading week-heading">
-        <a href="/?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
-        <h2>{{ activity.week_label }}</h2>
-        <a href="/?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
-      </div>
-      <div class="week-chart">
-        {% for day in activity.week %}
-        <div class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.minutes }}分">
-          <span class="bar-value">{{ day.minutes }}</span>
-          <div class="bar-track"><div class="bar" style="height: {{ day.percent }}%"></div></div>
-          <span>{{ day.label }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </article>
-    <article class="summary-card monthly-summary">
-      <div class="summary-heading month-heading">
-        <a href="/?month={{ activity.previous_month }}&week={{ activity.week_start }}" aria-label="前月">‹</a>
-        <h2>{{ activity.month_label }}</h2>
-        <a href="/?month={{ activity.next_month }}&week={{ activity.week_start }}" aria-label="翌月">›</a>
-      </div>
-      <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
-      <div class="calendar month-grid bubble-calendar">
-        {% for week in activity.month_weeks %}<div class="calendar-week{% if week[0].is_viewed_week %} viewed-week{% endif %}">{% for day in week %}
-        <button type="button" @click="selectedDate='{{ day.date }}'" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.minutes }}分">
-          <span class="day-number">{{ day.day }}</span>{% if day.has_activity %}<span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>{% endif %}
-        </button>
-        {% endfor %}</div>{% endfor %}
-      </div>
+    <article id="daily-activity" class="summary-card daily-summary">
       <div class="day-detail">
         <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span x-text="formatDuration(selectedActivity.seconds)"></span></div>
         <template x-if="selectedActivity.sessions.length">
@@ -73,6 +44,37 @@
           </div>
         </template>
         <template x-if="!selectedActivity.sessions.length"><p class="empty-activity">この日の記録はありません</p></template>
+      </div>
+    </article>
+    <article class="summary-card weekly-summary">
+      <div class="summary-heading week-heading">
+        <a href="/?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
+        <h2>{{ activity.week_label }}</h2>
+        <a href="/?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
+      </div>
+      <div class="week-chart">
+        {% for day in activity.week %}
+        <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.minutes }}分">
+          <span class="bar-value">{{ day.minutes }}</span>
+          <div class="bar-track"><div class="bar" style="height: {{ day.percent }}%"></div></div>
+          <span>{{ day.label }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </article>
+    <article class="summary-card monthly-summary">
+      <div class="summary-heading month-heading">
+        <a href="/?month={{ activity.previous_month }}&week={{ activity.week_start }}" aria-label="前月">‹</a>
+        <h2>{{ activity.month_label }}</h2>
+        <a href="/?month={{ activity.next_month }}&week={{ activity.week_start }}" aria-label="翌月">›</a>
+      </div>
+      <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
+      <div class="calendar month-grid bubble-calendar">
+        {% for week in activity.month_weeks %}<div class="calendar-week{% if week[0].is_viewed_week %} viewed-week{% endif %}">{% for day in week %}
+        <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.minutes }}分">
+          <span class="day-number">{{ day.day }}</span>{% if day.has_activity %}<span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>{% endif %}
+        </button>
+        {% endfor %}</div>{% endfor %}
       </div>
       <div class="activity-stats">
         <div><span>今月の集中時間</span><strong>{{ activity.month_minutes }}分</strong></div>

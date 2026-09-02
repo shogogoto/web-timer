@@ -45,3 +45,12 @@ def test_viewed_week_uses_background_instead_of_an_outline():
     rule = style.split(".calendar-week.viewed-week", 1)[1].split("}", 1)[0]
     assert "background: var(--week-highlight)" in rule
     assert "box-shadow" not in rule
+
+
+def test_daily_activity_appears_before_week_and_is_selectable_from_charts():
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    for template_name in ("timer.html", "admin_user.html"):
+        source = templates.env.loader.get_source(templates.env, template_name)[0]
+        assert source.index('id="daily-activity"') < source.index('class="summary-card weekly-summary"')
+        assert "@click=\"selectDate('{{ day.date }}', true)\"" in source
+    assert "document.getElementById('daily-activity')?.scrollIntoView" in script

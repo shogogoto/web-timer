@@ -157,6 +157,14 @@ function activityExplorer(activityDetails, selectedDate) {
   return {
     activityDetails,
     selectedDate,
+    selectDate(date, focusDetail = false) {
+      this.selectedDate = date;
+      if (!focusDetail) return;
+      requestAnimationFrame(() => {
+        const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        document.getElementById('daily-activity')?.scrollIntoView({behavior, block: 'start'});
+      });
+    },
     get selectedActivity() {
       return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[],hourly:[],ticks:[]};
     },
