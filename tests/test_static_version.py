@@ -27,3 +27,13 @@ def test_timer_exposes_keyboard_controls_without_interfering_with_forms():
     assert "target.closest('input, textarea, select, button, a')" in script
     assert "this.phase === 'running'" in script and "await this.pause()" in script
     assert "this.phase === 'paused'" in script and "await this.resume()" in script
+
+
+def test_timer_favicon_tracks_remaining_ratio_and_can_be_restored():
+    base = templates.env.loader.get_source(templates.env, "base.html")[0]
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    assert 'id="timer-favicon"' in base
+    assert 'data-default-href="/static/favicon.svg?v={{ static_version }}"' in base
+    assert "remainingSeconds / plannedSeconds" in script
+    assert "drawTimerFavicon(this.remaining, this.plannedSeconds)" in script
+    assert "restoreDefaultFavicon()" in script
