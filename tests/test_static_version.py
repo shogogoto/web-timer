@@ -36,8 +36,17 @@ def test_timer_favicon_tracks_remaining_ratio_and_can_be_restored():
     assert 'id="timer-favicon"' in base
     assert 'data-default-href="/static/favicon.svg?v={{ static_version }}"' in base
     assert "remainingSeconds / plannedSeconds" in script
-    assert "drawTimerFavicon(this.remaining, this.plannedSeconds)" in script
+    assert "drawTimerFavicon(this.remaining,this.plannedSeconds,this.phase==='paused')" in script
     assert "restoreDefaultFavicon()" in script
+
+
+def test_paused_favicon_keeps_progress_and_adds_pause_marker():
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    assert "function drawTimerFavicon(remainingSeconds, plannedSeconds, paused = false)" in script
+    assert "paused ? '#e3a72f'" in script
+    assert "context.moveTo(27, 25)" in script
+    assert "context.moveTo(37, 25)" in script
+    assert "`${this.phase}:${this.remaining}:${this.plannedSeconds}`" in script
 
 
 def test_viewed_week_uses_background_instead_of_an_outline():

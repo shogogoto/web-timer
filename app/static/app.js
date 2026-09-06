@@ -1,6 +1,6 @@
 let reminderAudioContext = null;
 
-function drawTimerFavicon(remainingSeconds, plannedSeconds) {
+function drawTimerFavicon(remainingSeconds, plannedSeconds, paused = false) {
   const favicon = document.getElementById('timer-favicon');
   if (!favicon || !plannedSeconds) return;
   const ratio = Math.max(0, Math.min(1, remainingSeconds / plannedSeconds));
@@ -31,9 +31,25 @@ function drawTimerFavicon(remainingSeconds, plannedSeconds) {
 
   context.beginPath();
   context.arc(32, 32, 27, 0, Math.PI * 2);
-  context.strokeStyle = dark ? '#e8efed' : '#ffffff';
-  context.lineWidth = 4;
+  context.strokeStyle = paused ? '#e3a72f' : (dark ? '#e8efed' : '#ffffff');
+  context.lineWidth = paused ? 5 : 4;
   context.stroke();
+
+  if (paused) {
+    context.beginPath();
+    context.arc(32, 32, 13, 0, Math.PI * 2);
+    context.fillStyle = dark ? '#101715' : '#17212b';
+    context.fill();
+    context.beginPath();
+    context.moveTo(27, 25);
+    context.lineTo(27, 39);
+    context.moveTo(37, 25);
+    context.lineTo(37, 39);
+    context.strokeStyle = '#ffffff';
+    context.lineWidth = 5;
+    context.lineCap = 'round';
+    context.stroke();
+  }
   favicon.type = 'image/png';
   favicon.href = canvas.toDataURL('image/png');
 }
@@ -91,7 +107,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     remaining: initial ? initial.remaining : defaultSeconds,
     phase: initial ? initial.status : 'select',
     sessionId: initial ? initial.id : null,
-    error: '', copyStatus: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false, hotkeyPending: false, faviconRemaining: null,
+    error: '', copyStatus: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false, hotkeyPending: false, faviconSignature: null,
     activityDetails, selectedDate: todayDate,
     get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
     get selectedActivity() { return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[],hourly:[],ticks:[]} },
@@ -112,7 +128,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
       }
     },
     init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.updateFavicon(); this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); else if (['ready','paused'].includes(this.phase)) this.updateFavicon(); else restoreDefaultFavicon(); },
-    updateFavicon() { if (this.faviconRemaining === this.remaining) return; this.faviconRemaining = this.remaining; drawTimerFavicon(this.remaining, this.plannedSeconds); },
+    updateFavicon() { const signature=`${this.phase}:${this.remaining}:${this.plannedSeconds}`; if(this.faviconSignature===signature)return; this.faviconSignature=signature; drawTimerFavicon(this.remaining,this.plannedSeconds,this.phase==='paused'); },
     async handleTimerHotkey(event) {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
       if (event.key !== ' ' && event.key !== 'Enter') return;
@@ -142,10 +158,10 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     async setDebugTimer(seconds) { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:seconds}); this.sessionId=r.id; this.plannedSeconds=seconds; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
     async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.selectedSeconds}); this.sessionId=r.id; this.plannedSeconds=this.selectedSeconds; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
-    runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.faviconRemaining=null; this.updateFavicon(); this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); this.updateFavicon(); if(this.remaining===0)this.finish(true)},250); },
-    async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconRemaining=null; this.updateFavicon(); } catch(e){this.error=e.message} },
+    runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.faviconSignature=null; this.updateFavicon(); this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); this.updateFavicon(); if(this.remaining===0)this.finish(true)},250); },
+    async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconSignature=null; this.updateFavicon(); } catch(e){this.error=e.message} },
     async resume() { try { const r=await this.request(`/api/sessions/${this.sessionId}/resume`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
-    async finish(completed) { try { clearInterval(this.interval); if(completed){this.phase='finished'; this.remaining=0; this.faviconRemaining=null; this.updateFavicon(); this.ring();} else restoreDefaultFavicon(); await this.request(`/api/sessions/${this.sessionId}/finish`); if(completed) setTimeout(()=>location.reload(),2800); else location.reload(); } catch(e){this.error=e.message} },
+    async finish(completed) { try { clearInterval(this.interval); if(completed){this.phase='finished'; this.remaining=0; this.faviconSignature=null; this.updateFavicon(); this.ring();} else restoreDefaultFavicon(); await this.request(`/api/sessions/${this.sessionId}/finish`); if(completed) setTimeout(()=>location.reload(),2800); else location.reload(); } catch(e){this.error=e.message} },
     async registerPushWorker() { if(!window.isSecureContext){this.error='バックグラウンド通知を使うにはHTTPSでアクセスしてください'; return;} if('serviceWorker' in navigator && 'PushManager' in window) this.pushRegistration=await navigator.serviceWorker.register('/sw.js'); },
     async askNotification() { try { if(!window.isSecureContext || !('Notification' in window) || !('serviceWorker' in navigator)) return; if(Notification.permission==='default') await Notification.requestPermission(); if(Notification.permission!=='granted') return; const registration=this.pushRegistration || await navigator.serviceWorker.ready, config=await fetch('/api/push/config').then(r=>r.json()), existing=await registration.pushManager.getSubscription(), subscription=existing || await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:this.urlBase64ToUint8Array(config.application_server_key)}); await fetch('/api/push/subscriptions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(subscription)}); } catch(e){console.warn('Push notification setup failed',e)} },
     urlBase64ToUint8Array(value) { const padding='='.repeat((4-value.length%4)%4), base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/'), raw=atob(base64); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); },
