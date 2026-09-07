@@ -22,7 +22,7 @@
     <template x-if="phase === 'running'"><div class="stack"><button class="primary big" @click="pause">一時停止</button><button class="danger" @click="finish(false)">終了</button></div></template>
     <template x-if="phase === 'paused'"><div class="stack"><button class="primary big" @click="resume">再開</button><button class="danger" @click="finish(false)">終了</button></div></template>
     <template x-if="phase === 'finished'"><div class="finished"><strong>🔔 時間になりました</strong><span>記録を保存しています</span></div></template>
-    <p class="hotkey-hint" x-cloak x-show="['select','ready','running','paused'].includes(phase)"><kbd>Space</kbd> / <kbd>Enter</kbd> で操作</p>
+    <p class="hotkey-hint" x-cloak x-show="['select','ready','running','paused'].includes(phase)"><kbd>Space</kbd> / <kbd>Enter</kbd> で操作 <span x-show="['running','paused'].includes(phase)">・<kbd>Esc</kbd> で終了</span></p>
     <p class="error" x-text="error"></p>
   </section>
   <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">

@@ -131,15 +131,19 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     updateFavicon() { const signature=`${this.phase}:${this.remaining}:${this.plannedSeconds}`; if(this.faviconSignature===signature)return; this.faviconSignature=signature; drawTimerFavicon(this.remaining,this.plannedSeconds,this.phase==='paused'); },
     async handleTimerHotkey(event) {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
-      if (event.key !== ' ' && event.key !== 'Enter') return;
+      const toggleKey = event.key === ' ' || event.key === 'Enter';
+      const finishKey = event.key === 'Escape';
+      if (!toggleKey && !finishKey) return;
       const target = event.target;
-      if (target instanceof Element && (target.isContentEditable || target.closest('input, textarea, select, button, a'))) return;
-      if (!['select', 'ready', 'running', 'paused'].includes(this.phase)) return;
+      if (toggleKey && target instanceof Element && (target.isContentEditable || target.closest('input, textarea, select, button, a'))) return;
+      if (finishKey && !['running', 'paused'].includes(this.phase)) return;
+      if (toggleKey && !['select', 'ready', 'running', 'paused'].includes(this.phase)) return;
       event.preventDefault();
       if (this.hotkeyPending) return;
       this.hotkeyPending = true;
       try {
-        if (this.phase === 'select') await this.setTimer();
+        if (finishKey) await this.finish(false);
+        else if (this.phase === 'select') await this.setTimer();
         else if (this.phase === 'ready') await this.start();
         else if (this.phase === 'running') await this.pause();
         else if (this.phase === 'paused') await this.resume();

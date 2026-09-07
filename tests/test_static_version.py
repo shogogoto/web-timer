@@ -25,9 +25,13 @@ def test_timer_exposes_keyboard_controls_without_interfering_with_forms():
     script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
     assert '@keydown.window="handleTimerHotkey($event)"' in template
     assert "event.repeat" in script
+    assert "toggleKey && target instanceof Element" in script
     assert "target.closest('input, textarea, select, button, a')" in script
     assert "this.phase === 'running'" in script and "await this.pause()" in script
     assert "this.phase === 'paused'" in script and "await this.resume()" in script
+    assert "event.key === 'Escape'" in script
+    assert "if (finishKey) await this.finish(false)" in script
+    assert '<kbd>Esc</kbd> で終了' in template
 
 
 def test_timer_favicon_tracks_remaining_ratio_and_can_be_restored():
