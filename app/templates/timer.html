@@ -19,7 +19,7 @@
       </div>
     </template>
     <template x-if="phase === 'ready'"><button class="primary big" @click="start">開始</button></template>
-    <template x-if="phase === 'running'"><div class="stack"><button class="penalty big" @click="pause">一時停止（ペナルティ）</button><button class="danger" @click="finish(false)">終了</button></div></template>
+    <template x-if="phase === 'running'"><div class="stack"><button class="primary big" @click="pause">一時停止</button><button class="danger" @click="finish(false)">終了</button></div></template>
     <template x-if="phase === 'paused'"><div class="stack"><button class="primary big" @click="resume">再開</button><button class="danger" @click="finish(false)">終了</button></div></template>
     <template x-if="phase === 'finished'"><div class="finished"><strong>🔔 時間になりました</strong><span>記録を保存しています</span></div></template>
     <p class="hotkey-hint" x-cloak x-show="['select','ready','running','paused'].includes(phase)"><kbd>Space</kbd> / <kbd>Enter</kbd> で操作 <span x-show="['running','paused'].includes(phase)">・<kbd>End</kbd> で終了</span></p>
@@ -28,7 +28,7 @@
   <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">
     <article id="daily-activity" class="summary-card daily-summary">
       <div class="day-detail">
-        <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span>合計 <b x-text="formatClockDuration(selectedActivity.seconds)"></b></span></div>
+        <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span>合計 <b x-text="formatClockDuration(selectedActivity.seconds)"></b> ・ 一時停止 <b x-text="selectedActivity.pauses"></b>回</span></div>
         <template x-if="selectedActivity.sessions.length">
           <div class="timeline-chart">
             <div class="timeline-plot">
@@ -99,6 +99,7 @@
         <div><span>今月の集中時間</span><strong>{{ format_hours_minutes(activity.month_seconds) }}</strong></div>
         <div><span>完了</span><strong>{{ activity.month_completed }}回</strong></div>
         <div><span>途中終了</span><strong>{{ activity.month_stopped }}回</strong></div>
+        <div><span>一時停止</span><strong>{{ activity.month_pauses }}回</strong></div>
       </div>
     </article>
   </section>

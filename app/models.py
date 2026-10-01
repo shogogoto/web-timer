@@ -33,6 +33,7 @@ class TimerSession(Base):
     pause_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     worked_seconds: Mapped[int] = mapped_column(Integer, default=0)
     paused_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    pause_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(16), default="ready")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     user: Mapped[User] = relationship(back_populates="sessions")

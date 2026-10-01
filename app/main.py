@@ -50,9 +50,12 @@ def initialize_database(database_engine=engine) -> None:
     if database_engine.dialect.name != "sqlite":
         return
     with database_engine.begin() as connection:
-        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(reminders)")}
-        if "message" not in columns:
+        reminder_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(reminders)")}
+        if "message" not in reminder_columns:
             connection.exec_driver_sql("ALTER TABLE reminders ADD COLUMN message VARCHAR(120)")
+        session_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(sessions)")}
+        if "pause_count" not in session_columns:
+            connection.exec_driver_sql("ALTER TABLE sessions ADD COLUMN pause_count INTEGER NOT NULL DEFAULT 0")
 
 
 async def notification_loop() -> None:
@@ -287,6 +290,7 @@ def activity_summary(
             "seconds": 0,
             "completed": 0,
             "stopped": 0,
+            "pauses": 0,
             "sessions": set(),
             "hourly": {},
         })
@@ -300,6 +304,7 @@ def activity_summary(
         day = ended_at.astimezone(TZ).date()
         detail = detail_for(day)
         detail[session.status] += 1
+        detail["pauses"] += session.pause_count
 
     def add_interval(started_at: datetime, ended_at: datetime, status: str, session_id: int) -> None:
         if started_at.tzinfo is None:
@@ -440,6 +445,7 @@ def activity_summary(
     month_prefix = f"{month_start.year:04d}-{month_start.month:02d}-"
     month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(month_prefix))
+    month_pauses = sum(detail["pauses"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     for detail in daily_details.values():
         hourly_items = list(detail["hourly"].values())
         maximum = max((bucket["seconds"] for bucket in hourly_items), default=0)
@@ -493,6 +499,7 @@ def activity_summary(
         "year_month_bars": year_month_bars,
         "month_completed": month_completed,
         "month_stopped": month_stopped,
+        "month_pauses": month_pauses,
         "month_weeks": month_weeks,
         "details": daily_details,
         "selected_date": (today if today.year == month_start.year and today.month == month_start.month else month_start).isoformat(),
@@ -725,6 +732,7 @@ def pause(session_id: int, user: User = Depends(current_user), db: Session = Dep
     if session.status != "running":
         raise HTTPException(409)
     session.pause_started_at = datetime.now(timezone.utc)
+    session.pause_count += 1
     session.status = "paused"
     close_work_segment(db, session, session.pause_started_at)
     db.commit()
@@ -846,6 +854,7 @@ def admin_user_activity(
         f"{activity['month_label']}: {format_duration_ja(activity['month_seconds'])}",
         f"完了: {activity['month_completed']}回",
         f"途中終了: {activity['month_stopped']}回",
+        f"一時停止: {activity['month_pauses']}回",
     ])
     return templates.TemplateResponse(request, "admin_user.html", {
         "account": account,

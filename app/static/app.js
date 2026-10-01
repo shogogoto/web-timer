@@ -110,7 +110,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     error: '', copyStatus: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false, hotkeyPending: false, faviconSignature: null,
     activityDetails, selectedDate: todayDate,
     get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
-    get selectedActivity() { return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[],hourly:[],ticks:[]} },
+    get selectedActivity() { return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,pauses:0,sessions:[],hourly:[],ticks:[]} },
     get selectedDateLabel() { const [year,month,day]=this.selectedDate.split('-').map(Number); return `${month}月${day}日` },
     formatDuration(seconds) { if(seconds<60)return `${seconds}秒`; const minutes=Math.floor(seconds/60), rest=seconds%60; return rest ? `${minutes}分${rest}秒` : `${minutes}分` },
     async copyReport(text) {
@@ -163,7 +163,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.selectedSeconds}); this.sessionId=r.id; this.plannedSeconds=this.selectedSeconds; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.faviconSignature=null; this.updateFavicon(); this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); this.updateFavicon(); if(this.remaining===0)this.finish(true)},250); },
-    async pause() { if(!confirm('一時停止中は集中時間に加算されません。タイマーをやり切らず、一時停止しますか？'))return; try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconSignature=null; this.updateFavicon(); } catch(e){this.error=e.message} },
+    async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconSignature=null; this.updateFavicon(); } catch(e){this.error=e.message} },
     async resume() { try { const r=await this.request(`/api/sessions/${this.sessionId}/resume`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     async finish(completed) { try { clearInterval(this.interval); if(completed){this.phase='finished'; this.remaining=0; this.faviconSignature=null; this.updateFavicon(); this.ring();} else restoreDefaultFavicon(); await this.request(`/api/sessions/${this.sessionId}/finish`); if(completed) setTimeout(()=>location.reload(),2800); else location.reload(); } catch(e){this.error=e.message} },
     async registerPushWorker() { if(!window.isSecureContext){this.error='バックグラウンド通知を使うにはHTTPSでアクセスしてください'; return;} if('serviceWorker' in navigator && 'PushManager' in window) this.pushRegistration=await navigator.serviceWorker.register('/sw.js'); },
@@ -187,7 +187,7 @@ function activityExplorer(activityDetails, selectedDate) {
       });
     },
     get selectedActivity() {
-      return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,sessions:[],hourly:[],ticks:[]};
+      return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,pauses:0,sessions:[],hourly:[],ticks:[]};
     },
     get selectedDateLabel() {
       const [year, month, day] = this.selectedDate.split('-').map(Number);

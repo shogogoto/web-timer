@@ -202,6 +202,21 @@ def test_existing_sqlite_reminder_table_gets_message_column():
     assert "message" in columns
 
 
+def test_existing_sqlite_session_table_gets_pause_count_column():
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE TABLE sessions (id INTEGER PRIMARY KEY)")
+        connection.exec_driver_sql("INSERT INTO sessions (id) VALUES (1)")
+
+    initialize_database(engine)
+
+    with engine.connect() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(sessions)")}
+        values = connection.exec_driver_sql("SELECT pause_count FROM sessions").fetchall()
+    assert "pause_count" in columns
+    assert values == [(0,)]
+
+
 def test_reminder_link_selects_duration_only_when_no_timer_is_active():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)

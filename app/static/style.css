@@ -94,7 +94,6 @@ input, select {
   gap: .6rem;
 }
 .primary { color: var(--primary-text); background: var(--primary); }
-.penalty { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
 .big { min-width: 12rem; font-size: 1.3rem; }
 .danger { color: var(--danger); background: none; }
 .error { min-height: 1.5rem; color: var(--danger); }
@@ -183,7 +182,7 @@ input, select {
 .timeline-bar span { position: absolute; bottom: calc(100% + .3rem); left: 50%; color: var(--muted); font-size: .65rem; white-space: nowrap; transform: translateX(-50%); }
 .timeline-bar.stopped { background: var(--muted); opacity: .55; }
 .empty-activity { height: 8rem; display: grid; place-content: center; margin: 0; color: var(--muted); font-size: .85rem; }
-.activity-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
+.activity-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1.5rem; }
 .activity-stats div { display: grid; gap: .25rem; text-align: center; }
 .activity-stats span { color: var(--muted); font-size: .8rem; }
 .activity-stats strong { font-size: 1.2rem; }

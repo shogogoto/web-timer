@@ -35,11 +35,14 @@ def test_timer_exposes_keyboard_controls_without_interfering_with_forms():
     assert '<kbd>End</kbd> で終了' in template
 
 
-def test_pause_is_presented_as_a_penalty():
+def test_pause_count_replaces_confirmation_penalty():
     template = templates.env.loader.get_source(templates.env, "timer.html")[0]
     script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
-    assert "一時停止（ペナルティ）" in template
-    assert "一時停止中は集中時間に加算されません" in script
+    assert "一時停止（ペナルティ）" not in template
+    assert '>一時停止</button>' in template
+    assert "confirm(" not in script
+    assert 'x-text="selectedActivity.pauses"' in template
+    assert "activity.month_pauses" in template
 
 
 def test_activity_chart_switches_between_week_month_and_year():

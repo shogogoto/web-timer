@@ -69,10 +69,15 @@ def test_timer_api_records_segments_on_start_pause_and_resume():
         assert segments[0].ended_at is None
 
         pause(session.id, user, db)
+        db.refresh(session)
         db.refresh(segments[0])
+        assert session.pause_count == 1
         assert segments[0].ended_at is not None
 
         resume(session.id, user, db)
+        pause(session.id, user, db)
+        db.refresh(session)
         segments = db.query(WorkSegment).filter_by(session_id=session.id).order_by(WorkSegment.id).all()
+        assert session.pause_count == 2
         assert len(segments) == 2
-        assert segments[1].ended_at is None
+        assert segments[1].ended_at is not None

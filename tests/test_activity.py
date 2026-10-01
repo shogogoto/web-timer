@@ -26,8 +26,8 @@ def test_activity_is_grouped_by_day_for_one_user():
         db.flush()
         ended_at = datetime(2026, 8, 14, 1, tzinfo=timezone.utc)
         db.add_all([
-            TimerSession(user_id=user.id, planned_seconds=1500, worked_seconds=1500, ended_at=ended_at, status="completed"),
-            TimerSession(user_id=user.id, planned_seconds=600, worked_seconds=300, ended_at=ended_at, status="stopped"),
+            TimerSession(user_id=user.id, planned_seconds=1500, worked_seconds=1500, pause_count=2, ended_at=ended_at, status="completed"),
+            TimerSession(user_id=user.id, planned_seconds=600, worked_seconds=300, pause_count=1, ended_at=ended_at, status="stopped"),
             TimerSession(user_id=other.id, planned_seconds=3600, worked_seconds=3600, ended_at=ended_at, status="completed"),
         ])
         db.commit()
@@ -42,9 +42,11 @@ def test_activity_is_grouped_by_day_for_one_user():
     assert summary["week"][4]["minutes"] == 30
     assert summary["month_completed"] == 1
     assert summary["month_stopped"] == 1
+    assert summary["month_pauses"] == 3
     assert summary["month_weeks"][1][0]["has_activity"] is False
     assert next(day for week in summary["month_weeks"] for day in week if day["date"] == "2026-08-14")["has_activity"] is True
     assert summary["details"]["2026-08-14"]["seconds"] == 1800
+    assert summary["details"]["2026-08-14"]["pauses"] == 3
     assert summary["details"]["2026-08-14"]["ticks"][0]["label"] == "07"
     assert summary["details"]["2026-08-14"]["ticks"][-1]["label"] == "12"
     assert len(summary["details"]["2026-08-14"]["hourly"]) == 1

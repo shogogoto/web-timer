@@ -7,7 +7,7 @@
   <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">
     <article id="daily-activity" class="summary-card daily-summary">
       <div class="day-detail">
-        <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span>合計 <b x-text="formatClockDuration(selectedActivity.seconds)"></b></span></div>
+        <div class="detail-heading"><strong x-text="selectedDateLabel"></strong><span>合計 <b x-text="formatClockDuration(selectedActivity.seconds)"></b> ・ 一時停止 <b x-text="selectedActivity.pauses"></b>回</span></div>
         <template x-if="selectedActivity.sessions.length"><div class="timeline-chart"><div class="timeline-plot">
           <template x-for="tick in selectedActivity.ticks" :key="tick.label"><div class="timeline-gridline" :style="`left:${tick.left}%`"><span x-text="tick.label"></span></div></template>
           <template x-for="bucket in selectedActivity.hourly" :key="bucket.hour"><button type="button" class="timeline-bar" :class="{'stopped':bucket.only_stopped}" :style="`left:${bucket.left}%;height:${bucket.height}%`" :title="bucket.label+' / '+formatDuration(bucket.seconds)+' / 完了 '+bucket.completed+'回 / 途中終了 '+bucket.stopped+'回'"><span x-text="formatDuration(bucket.seconds)"></span></button></template>
@@ -66,6 +66,7 @@
         <div><span>今月の集中時間</span><strong>{{ format_hours_minutes(activity.month_seconds) }}</strong></div>
         <div><span>完了</span><strong>{{ activity.month_completed }}回</strong></div>
         <div><span>途中終了</span><strong>{{ activity.month_stopped }}回</strong></div>
+        <div><span>一時停止</span><strong>{{ activity.month_pauses }}回</strong></div>
       </div>
     </article>
   </section>
