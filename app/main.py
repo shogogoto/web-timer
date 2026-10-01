@@ -248,16 +248,21 @@ def activity_summary(
     month_start = (target_month or today).replace(day=1)
     next_month = (month_start + timedelta(days=32)).replace(day=1)
     previous_month = (month_start - timedelta(days=1)).replace(day=1)
+    year_start = month_start.replace(month=1)
+    next_year = year_start.replace(year=year_start.year + 1)
     today_start_utc = datetime.combine(today, datetime.min.time(), TZ).astimezone(timezone.utc)
     today_end_utc = datetime.combine(today + timedelta(days=1), datetime.min.time(), TZ).astimezone(timezone.utc)
     week_start_utc = datetime.combine(week_start, datetime.min.time(), TZ).astimezone(timezone.utc)
     week_end_utc = datetime.combine(week_start + timedelta(days=7), datetime.min.time(), TZ).astimezone(timezone.utc)
     month_start_utc = datetime.combine(month_start, datetime.min.time(), TZ).astimezone(timezone.utc)
     month_end_utc = datetime.combine(next_month, datetime.min.time(), TZ).astimezone(timezone.utc)
+    year_start_utc = datetime.combine(year_start, datetime.min.time(), TZ).astimezone(timezone.utc)
+    year_end_utc = datetime.combine(next_year, datetime.min.time(), TZ).astimezone(timezone.utc)
     ranges = sorted([
         (today_start_utc, today_end_utc),
         (week_start_utc, week_end_utc),
         (month_start_utc, month_end_utc),
+        (year_start_utc, year_end_utc),
     ])
     merged_ranges: list[tuple[datetime, datetime]] = []
     for range_start, range_end in ranges:
@@ -406,6 +411,32 @@ def activity_summary(
         } for day in dates])
 
     month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == month_start.month and day.year == month_start.year)
+    month_week_bars = []
+    month_week_totals = []
+    for dates in calendar.Calendar(firstweekday=0).monthdatescalendar(month_start.year, month_start.month):
+        in_month = [day for day in dates if day.month == month_start.month]
+        seconds = sum(daily_seconds.get(day, 0) for day in in_month)
+        month_week_totals.append((in_month, seconds))
+    month_week_max = max((seconds for _, seconds in month_week_totals), default=0)
+    for index, (dates, seconds) in enumerate(month_week_totals, start=1):
+        month_week_bars.append({
+            "label": f"{index}週",
+            "duration": format_hours_colon_minutes(seconds),
+            "duration_long": format_hours_minutes(seconds),
+            "percent": round(seconds / month_week_max * 100) if month_week_max else 0,
+            "range": f"{dates[0].month}/{dates[0].day}〜{dates[-1].month}/{dates[-1].day}",
+        })
+    year_month_totals = [
+        sum(seconds for day, seconds in daily_seconds.items() if day.year == year_start.year and day.month == month)
+        for month in range(1, 13)
+    ]
+    year_month_max = max(year_month_totals, default=0)
+    year_month_bars = [{
+        "label": f"{month}月",
+        "duration": format_hours_colon_minutes(seconds),
+        "duration_long": format_hours_minutes(seconds),
+        "percent": round(seconds / year_month_max * 100) if year_month_max else 0,
+    } for month, seconds in enumerate(year_month_totals, start=1)]
     month_prefix = f"{month_start.year:04d}-{month_start.month:02d}-"
     month_completed = sum(detail["completed"] for date, detail in daily_details.items() if date.startswith(month_prefix))
     month_stopped = sum(detail["stopped"] for date, detail in daily_details.items() if date.startswith(month_prefix))
@@ -457,6 +488,9 @@ def activity_summary(
         "next_month": next_month.strftime("%Y-%m"),
         "month_seconds": month_seconds,
         "month_minutes": month_seconds // 60,
+        "month_week_bars": month_week_bars,
+        "year_label": f"{year_start.year}年",
+        "year_month_bars": year_month_bars,
         "month_completed": month_completed,
         "month_stopped": month_stopped,
         "month_weeks": month_weeks,

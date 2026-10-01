@@ -19,10 +19,10 @@
       </div>
     </template>
     <template x-if="phase === 'ready'"><button class="primary big" @click="start">開始</button></template>
-    <template x-if="phase === 'running'"><div class="stack"><button class="primary big" @click="pause">一時停止</button><button class="danger" @click="finish(false)">終了</button></div></template>
+    <template x-if="phase === 'running'"><div class="stack"><button class="penalty big" @click="pause">一時停止（ペナルティ）</button><button class="danger" @click="finish(false)">終了</button></div></template>
     <template x-if="phase === 'paused'"><div class="stack"><button class="primary big" @click="resume">再開</button><button class="danger" @click="finish(false)">終了</button></div></template>
     <template x-if="phase === 'finished'"><div class="finished"><strong>🔔 時間になりました</strong><span>記録を保存しています</span></div></template>
-    <p class="hotkey-hint" x-cloak x-show="['select','ready','running','paused'].includes(phase)"><kbd>Space</kbd> / <kbd>Enter</kbd> で操作 <span x-show="['running','paused'].includes(phase)">・<kbd>Esc</kbd> で終了</span></p>
+    <p class="hotkey-hint" x-cloak x-show="['select','ready','running','paused'].includes(phase)"><kbd>Space</kbd> / <kbd>Enter</kbd> で操作 <span x-show="['running','paused'].includes(phase)">・<kbd>End</kbd> で終了</span></p>
     <p class="error" x-text="error"></p>
   </section>
   <section id="activity-grid" class="activity-grid" x-data='activityExplorer({{ activity.details | tojson }}, {{ activity.selected_date | tojson }})' hx-boost="true" hx-target="#activity-grid" hx-select="#activity-grid" hx-swap="outerHTML transition:true" hx-push-url="true" hx-indicator="#activity-grid">
@@ -47,12 +47,18 @@
       </div>
     </article>
     <article class="summary-card weekly-summary">
-      <div class="summary-heading week-heading">
-        <a href="/?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
-        <h2>{{ activity.week_label }} <small>時間:分</small></h2>
-        <a href="/?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
+      <div class="range-switch" role="group" aria-label="棒グラフの期間">
+        <button type="button" @click="chartRange='week'" :class="{'selected':chartRange==='week'}">今週</button>
+        <button type="button" @click="chartRange='month'" :class="{'selected':chartRange==='month'}">今月</button>
+        <button type="button" @click="chartRange='year'" :class="{'selected':chartRange==='year'}">今年</button>
       </div>
-      <div class="week-chart">
+      <div x-show="chartRange === 'week'">
+        <div class="summary-heading week-heading">
+          <a href="/?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
+          <h2>{{ activity.week_label }} <small>時間:分</small></h2>
+          <a href="/?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
+        </div>
+        <div class="week-chart">
         {% for day in activity.week %}
         <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.duration_long }}">
           <span class="bar-value">{{ day.duration }}</span>
@@ -60,6 +66,19 @@
           <span>{{ day.label }}</span>
         </button>
         {% endfor %}
+        </div>
+      </div>
+      <div x-cloak x-show="chartRange === 'month'">
+        <h2 class="period-title">{{ activity.month_label }} <small>週ごとの合計</small></h2>
+        <div class="week-chart period-chart month-period-chart">
+          {% for item in activity.month_week_bars %}<div class="week-day" title="{{ item.range }}: {{ item.duration_long }}"><span class="bar-value">{{ item.duration }}</span><div class="bar-track"><div class="bar" style="height:{{ item.percent }}%"></div></div><span>{{ item.label }}</span></div>{% endfor %}
+        </div>
+      </div>
+      <div x-cloak x-show="chartRange === 'year'">
+        <h2 class="period-title">{{ activity.year_label }} <small>月ごとの合計</small></h2>
+        <div class="period-chart-scroll"><div class="week-chart period-chart year-period-chart">
+          {% for item in activity.year_month_bars %}<div class="week-day" title="{{ item.label }}: {{ item.duration_long }}"><span class="bar-value">{{ item.duration }}</span><div class="bar-track"><div class="bar" style="height:{{ item.percent }}%"></div></div><span>{{ item.label }}</span></div>{% endfor %}
+        </div></div>
       </div>
     </article>
     <article class="summary-card monthly-summary">

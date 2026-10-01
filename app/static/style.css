@@ -94,6 +94,7 @@ input, select {
   gap: .6rem;
 }
 .primary { color: var(--primary-text); background: var(--primary); }
+.penalty { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
 .big { min-width: 12rem; font-size: 1.3rem; }
 .danger { color: var(--danger); background: none; }
 .error { min-height: 1.5rem; color: var(--danger); }
@@ -143,6 +144,14 @@ input, select {
 .month-heading a, .week-heading a { display: grid; place-items: center; width: 2rem; height: 2rem; color: var(--text); border-radius: 50%; text-decoration: none; font-size: 1.5rem; }
 .month-heading a:hover, .week-heading a:hover { background: var(--control); }
 .week-chart { height: 8.5rem; display: grid; grid-template-columns: repeat(7, 1fr); gap: .45rem; margin-top: 1rem; }
+.range-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin-bottom: 1rem; padding: .25rem; background: var(--background); border-radius: .75rem; }
+.range-switch button { padding: .45rem; color: var(--muted); background: transparent; }
+.range-switch button.selected { color: var(--primary-text); background: var(--primary); }
+.period-title { margin: .35rem 0 0; text-align: center; font-size: 1rem; }
+.period-title small { margin-left: .35rem; color: var(--muted); font-size: .68rem; font-weight: 400; }
+.month-period-chart { grid-template-columns: repeat(6, 1fr); }
+.period-chart-scroll { overflow-x: auto; }
+.year-period-chart { min-width: 42rem; grid-template-columns: repeat(12, 1fr); }
 .week-day { min-width: 0; padding: 0; display: grid; grid-template-rows: 1rem 1fr 1.2rem; gap: .25rem; text-align: center; color: var(--muted); background: transparent; border-radius: .35rem; font-size: .75rem; }
 .week-day:hover { filter: none; }
 .week-day.current { color: var(--primary); font-weight: 700; }

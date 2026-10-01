@@ -16,17 +16,36 @@
       </div>
     </article>
     <article class="summary-card weekly-summary">
-      <div class="summary-heading week-heading">
-        <a href="/admin/users/{{ account.id }}?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
-        <h2>{{ activity.week_label }} <small>時間:分</small></h2>
-        <a href="/admin/users/{{ account.id }}?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
+      <div class="range-switch" role="group" aria-label="棒グラフの期間">
+        <button type="button" @click="chartRange='week'" :class="{'selected':chartRange==='week'}">今週</button>
+        <button type="button" @click="chartRange='month'" :class="{'selected':chartRange==='month'}">今月</button>
+        <button type="button" @click="chartRange='year'" :class="{'selected':chartRange==='year'}">今年</button>
       </div>
-      <div class="week-chart">
+      <div x-show="chartRange === 'week'">
+        <div class="summary-heading week-heading">
+          <a href="/admin/users/{{ account.id }}?week={{ activity.previous_week }}&month={{ activity.previous_week_month }}" aria-label="前週">‹</a>
+          <h2>{{ activity.week_label }} <small>時間:分</small></h2>
+          <a href="/admin/users/{{ account.id }}?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
+        </div>
+        <div class="week-chart">
         {% for day in activity.week %}
         <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.duration_long }}">
           <span class="bar-value">{{ day.duration }}</span><div class="bar-track"><div class="bar" style="height:{{ day.percent }}%"></div></div><span>{{ day.label }}</span>
         </button>
         {% endfor %}
+        </div>
+      </div>
+      <div x-cloak x-show="chartRange === 'month'">
+        <h2 class="period-title">{{ activity.month_label }} <small>週ごとの合計</small></h2>
+        <div class="week-chart period-chart month-period-chart">
+          {% for item in activity.month_week_bars %}<div class="week-day" title="{{ item.range }}: {{ item.duration_long }}"><span class="bar-value">{{ item.duration }}</span><div class="bar-track"><div class="bar" style="height:{{ item.percent }}%"></div></div><span>{{ item.label }}</span></div>{% endfor %}
+        </div>
+      </div>
+      <div x-cloak x-show="chartRange === 'year'">
+        <h2 class="period-title">{{ activity.year_label }} <small>月ごとの合計</small></h2>
+        <div class="period-chart-scroll"><div class="week-chart period-chart year-period-chart">
+          {% for item in activity.year_month_bars %}<div class="week-day" title="{{ item.label }}: {{ item.duration_long }}"><span class="bar-value">{{ item.duration }}</span><div class="bar-track"><div class="bar" style="height:{{ item.percent }}%"></div></div><span>{{ item.label }}</span></div>{% endfor %}
+        </div></div>
       </div>
     </article>
     <article class="summary-card monthly-summary">

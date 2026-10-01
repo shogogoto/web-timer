@@ -29,9 +29,27 @@ def test_timer_exposes_keyboard_controls_without_interfering_with_forms():
     assert "target.closest('input, textarea, select, button, a')" in script
     assert "this.phase === 'running'" in script and "await this.pause()" in script
     assert "this.phase === 'paused'" in script and "await this.resume()" in script
-    assert "event.key === 'Escape'" in script
+    assert "event.key === 'End'" in script
+    assert "event.key === 'Escape'" not in script
     assert "if (finishKey) await this.finish(false)" in script
-    assert '<kbd>Esc</kbd> で終了' in template
+    assert '<kbd>End</kbd> で終了' in template
+
+
+def test_pause_is_presented_as_a_penalty():
+    template = templates.env.loader.get_source(templates.env, "timer.html")[0]
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    assert "一時停止（ペナルティ）" in template
+    assert "一時停止中は集中時間に加算されません" in script
+
+
+def test_activity_chart_switches_between_week_month_and_year():
+    for template_name in ("timer.html", "admin_user.html"):
+        source = templates.env.loader.get_source(templates.env, template_name)[0]
+        assert "chartRange='week'" in source
+        assert "chartRange='month'" in source
+        assert "chartRange='year'" in source
+        assert "activity.month_week_bars" in source
+        assert "activity.year_month_bars" in source
 
 
 def test_timer_favicon_tracks_remaining_ratio_and_can_be_restored():

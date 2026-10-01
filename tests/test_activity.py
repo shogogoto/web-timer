@@ -135,6 +135,29 @@ def test_activity_can_display_another_month():
     assert summary["selected_date"] == "2026-07-01"
 
 
+def test_activity_groups_month_by_week_and_year_by_month():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    now = datetime(2026, 8, 14, 12, tzinfo=TZ)
+    with Session(engine) as db:
+        user = User(username="user", password_hash="hash", role="user")
+        db.add(user)
+        db.flush()
+        db.add_all([
+            TimerSession(user_id=user.id, planned_seconds=600, worked_seconds=600, ended_at=datetime(2026, 8, 3, 1, tzinfo=timezone.utc), status="completed"),
+            TimerSession(user_id=user.id, planned_seconds=1200, worked_seconds=1200, ended_at=datetime(2026, 8, 10, 1, tzinfo=timezone.utc), status="completed"),
+            TimerSession(user_id=user.id, planned_seconds=1800, worked_seconds=1800, ended_at=datetime(2026, 7, 10, 1, tzinfo=timezone.utc), status="completed"),
+        ])
+        db.commit()
+
+        summary = activity_summary(db, user.id, now)
+
+    assert [bar["duration"] for bar in summary["month_week_bars"][:3]] == ["0:00", "0:10", "0:20"]
+    assert summary["year_label"] == "2026年"
+    assert summary["year_month_bars"][6]["duration"] == "0:30"
+    assert summary["year_month_bars"][7]["duration"] == "0:30"
+
+
 def test_activity_can_display_previous_and_next_weeks():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)

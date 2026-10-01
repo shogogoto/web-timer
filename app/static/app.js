@@ -132,7 +132,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     async handleTimerHotkey(event) {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
       const toggleKey = event.key === ' ' || event.key === 'Enter';
-      const finishKey = event.key === 'Escape';
+      const finishKey = event.key === 'End';
       if (!toggleKey && !finishKey) return;
       const target = event.target;
       if (toggleKey && target instanceof Element && (target.isContentEditable || target.closest('input, textarea, select, button, a'))) return;
@@ -163,7 +163,7 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
     async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.selectedSeconds}); this.sessionId=r.id; this.plannedSeconds=this.selectedSeconds; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.faviconSignature=null; this.updateFavicon(); this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); this.updateFavicon(); if(this.remaining===0)this.finish(true)},250); },
-    async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconSignature=null; this.updateFavicon(); } catch(e){this.error=e.message} },
+    async pause() { if(!confirm('一時停止中は集中時間に加算されません。タイマーをやり切らず、一時停止しますか？'))return; try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconSignature=null; this.updateFavicon(); } catch(e){this.error=e.message} },
     async resume() { try { const r=await this.request(`/api/sessions/${this.sessionId}/resume`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     async finish(completed) { try { clearInterval(this.interval); if(completed){this.phase='finished'; this.remaining=0; this.faviconSignature=null; this.updateFavicon(); this.ring();} else restoreDefaultFavicon(); await this.request(`/api/sessions/${this.sessionId}/finish`); if(completed) setTimeout(()=>location.reload(),2800); else location.reload(); } catch(e){this.error=e.message} },
     async registerPushWorker() { if(!window.isSecureContext){this.error='バックグラウンド通知を使うにはHTTPSでアクセスしてください'; return;} if('serviceWorker' in navigator && 'PushManager' in window) this.pushRegistration=await navigator.serviceWorker.register('/sw.js'); },
@@ -177,6 +177,7 @@ function activityExplorer(activityDetails, selectedDate) {
   return {
     activityDetails,
     selectedDate,
+    chartRange: 'week',
     selectDate(date, focusDetail = false) {
       this.selectedDate = date;
       if (!focusDetail) return;
