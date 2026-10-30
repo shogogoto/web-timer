@@ -15,12 +15,14 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import admin_user, bootstrap_admin, current_user, hash_password, verify_password
+from .auth import admin_user, bootstrap_admin, current_user, verify_password
 from .db import Base, SessionLocal, engine, get_db
-from .models import PushSubscription, Reminder, TimerSession, User, WorkSegment
+from .models import PushSubscription, Reminder, TimerPolicy, TimerSession, User, WorkSegment
 from .push import (
     application_server_key,
     ensure_vapid_key,
+    send_pause_timeout_notification_async,
+    send_pause_warning_notification_async,
     send_reminder_notification_async,
     send_timer_notification_async,
 )
@@ -29,6 +31,9 @@ from .timer import remaining_seconds, worked_so_far
 BASE_DIR = Path(__file__).parent
 TZ = ZoneInfo(os.getenv("TZ", "Asia/Tokyo"))
 ALLOW_SHORT_TIMERS = os.getenv("ALLOW_SHORT_TIMERS", "false").lower() == "true"
+DEFAULT_PAUSE_WARNING_MINUTES = 5
+DEFAULT_MAX_PAUSE_COUNT = 3
+PAUSE_GRACE_SECONDS = 60
 
 
 @asynccontextmanager
@@ -56,27 +61,81 @@ def initialize_database(database_engine=engine) -> None:
         session_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(sessions)")}
         if "pause_count" not in session_columns:
             connection.exec_driver_sql("ALTER TABLE sessions ADD COLUMN pause_count INTEGER NOT NULL DEFAULT 0")
+        if "pause_warning_sent_at" not in session_columns:
+            connection.exec_driver_sql("ALTER TABLE sessions ADD COLUMN pause_warning_sent_at DATETIME")
+        if "stop_reason" not in session_columns:
+            connection.exec_driver_sql("ALTER TABLE sessions ADD COLUMN stop_reason VARCHAR(32)")
+
+
+def pause_policy(db: Session) -> dict[str, int]:
+    policy = db.get(TimerPolicy, 1)
+    warning_minutes = policy.pause_warning_minutes if policy else DEFAULT_PAUSE_WARNING_MINUTES
+    max_pause_count = policy.max_pause_count if policy else DEFAULT_MAX_PAUSE_COUNT
+    return {
+        "warning_minutes": warning_minutes,
+        "warning_seconds": warning_minutes * 60,
+        "grace_seconds": PAUSE_GRACE_SECONDS,
+        "max_pause_count": max_pause_count,
+    }
+
+
+def paused_seconds_so_far(session: TimerSession, now: datetime) -> int:
+    paused_at = session.pause_started_at
+    if paused_at is None:
+        return 0
+    if paused_at.tzinfo is None:
+        paused_at = paused_at.replace(tzinfo=timezone.utc)
+    return max(0, int((now - paused_at).total_seconds()))
+
+
+def process_timer_deadlines(db: Session, now: datetime) -> dict[str, list]:
+    notifications: dict[str, list] = {"completed": [], "pause_warnings": [], "pause_timeouts": []}
+    running_sessions = db.scalars(select(TimerSession).where(TimerSession.status == "running")).all()
+    for session in running_sessions:
+        if worked_so_far(session, now) >= session.planned_seconds:
+            session.worked_seconds = session.planned_seconds
+            session.ended_at = now
+            session.status = "completed"
+            close_work_segment(db, session, now, session.planned_seconds)
+            notifications["completed"].append(session.user_id)
+
+    policy = pause_policy(db)
+    paused_sessions = db.scalars(select(TimerSession).where(TimerSession.status == "paused")).all()
+    for session in paused_sessions:
+        elapsed = paused_seconds_so_far(session, now)
+        force_stop_after = policy["warning_seconds"] + policy["grace_seconds"]
+        if elapsed >= force_stop_after:
+            session.worked_seconds = worked_so_far(session, now)
+            session.paused_seconds += elapsed
+            session.ended_at = now
+            session.pause_started_at = None
+            session.status = "stopped"
+            session.stop_reason = "pause_timeout"
+            notifications["pause_timeouts"].append({"user_id": session.user_id, "session_id": session.id})
+        elif elapsed >= policy["warning_seconds"] and session.pause_warning_sent_at is None:
+            session.pause_warning_sent_at = now
+            notifications["pause_warnings"].append({
+                "user_id": session.user_id,
+                "session_id": session.id,
+                "warning_minutes": policy["warning_minutes"],
+            })
+    return notifications
 
 
 async def notification_loop() -> None:
     while True:
         await asyncio.sleep(1)
-        completed_user_ids: list[int] = []
-        reminder_notifications: list[dict] = []
         now = datetime.now(timezone.utc)
         with SessionLocal() as db:
-            sessions = db.scalars(select(TimerSession).where(TimerSession.status == "running")).all()
-            for session in sessions:
-                if worked_so_far(session, now) >= session.planned_seconds:
-                    session.worked_seconds = session.planned_seconds
-                    session.ended_at = now
-                    session.status = "completed"
-                    close_work_segment(db, session, now, session.planned_seconds)
-                    completed_user_ids.append(session.user_id)
+            notifications = process_timer_deadlines(db, now)
             reminder_notifications = collect_due_reminders(db, now)
             db.commit()
-        for user_id in completed_user_ids:
+        for user_id in notifications["completed"]:
             await send_timer_notification_async(SessionLocal, user_id)
+        for notification in notifications["pause_warnings"]:
+            await send_pause_warning_notification_async(SessionLocal, **notification)
+        for notification in notifications["pause_timeouts"]:
+            await send_pause_timeout_notification_async(SessionLocal, **notification)
         for notification in reminder_notifications:
             await send_reminder_notification_async(SessionLocal, notification)
 
@@ -507,23 +566,47 @@ def activity_summary(
 
 
 @app.exception_handler(401)
-async def unauthorized(_: Request, __: HTTPException):
-    return redirect("/login")
+async def unauthorized(request: Request, _: HTTPException):
+    return redirect("/admin/login" if request.url.path.startswith("/admin") else "/login")
 
 
 @app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
-    return templates.TemplateResponse(request, "login.html", {})
+def login_page(request: Request, db: Session = Depends(get_db)):
+    users = db.scalars(select(User).where(User.role == "user").order_by(User.username)).all()
+    return templates.TemplateResponse(request, "login.html", {"users": users})
 
 
 @app.post("/login")
-def login(request: Request, username: str = Form(), password: str = Form(), db: Session = Depends(get_db)):
-    user = db.scalars(select(User).where(User.username == username.strip())).first()
-    if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse(request, "login.html", {"error": "ユーザー名またはパスワードが違います"}, status_code=400)
+def login(request: Request, username: str = Form(), db: Session = Depends(get_db)):
+    users = db.scalars(select(User).where(User.role == "user").order_by(User.username)).all()
+    user = db.scalars(select(User).where(User.username == username.strip(), User.role == "user")).first()
+    if not user:
+        return templates.TemplateResponse(
+            request, "login.html", {"users": users, "error": "利用者が見つかりません"}, status_code=400,
+        )
     request.session.clear()
     request.session["user_id"] = user.id
-    return redirect("/admin" if user.role == "admin" else "/")
+    return redirect("/")
+
+
+@app.get("/admin/login", response_class=HTMLResponse)
+def admin_login_page(request: Request):
+    return templates.TemplateResponse(request, "admin_login.html", {})
+
+
+@app.post("/admin/login")
+def admin_login(request: Request, username: str = Form(), password: str = Form(), db: Session = Depends(get_db)):
+    user = db.scalars(select(User).where(User.username == username.strip(), User.role == "admin")).first()
+    if not user or not verify_password(password, user.password_hash):
+        return templates.TemplateResponse(
+            request,
+            "admin_login.html",
+            {"error": "管理者名またはパスワードが違います"},
+            status_code=400,
+        )
+    request.session.clear()
+    request.session["user_id"] = user.id
+    return redirect("/admin")
 
 
 @app.post("/logout")
@@ -543,8 +626,16 @@ def timer_page(
 ):
     session = active_session(db, user.id)
     state = None
+    policy = pause_policy(db)
     if session:
-        state = {"id": session.id, "status": session.status, "planned": session.planned_seconds, "remaining": remaining_seconds(session)}
+        state = {
+            "id": session.id,
+            "status": session.status,
+            "planned": session.planned_seconds,
+            "remaining": remaining_seconds(session),
+            "pause_count": session.pause_count,
+            "pause_elapsed": paused_seconds_so_far(session, datetime.now(timezone.utc)),
+        }
     target_month = None
     if month:
         try:
@@ -574,6 +665,7 @@ def timer_page(
             "reminder_minutes": reminder_minutes,
             "activity": activity_summary(db, user.id, target_month=target_month, target_week=target_week),
             "allow_short_timers": ALLOW_SHORT_TIMERS,
+            "pause_policy": policy,
         },
     )
 
@@ -731,12 +823,23 @@ def pause(session_id: int, user: User = Depends(current_user), db: Session = Dep
     session = owned_session(session_id, user, db)
     if session.status != "running":
         raise HTTPException(409)
+    policy = pause_policy(db)
+    if session.pause_count >= policy["max_pause_count"]:
+        raise HTTPException(409, f"一時停止は1回のタイマーにつき{policy['max_pause_count']}回までです")
     session.pause_started_at = datetime.now(timezone.utc)
     session.pause_count += 1
+    session.pause_warning_sent_at = None
     session.status = "paused"
     close_work_segment(db, session, session.pause_started_at)
     db.commit()
-    return {"status": session.status, "remaining": remaining_seconds(session)}
+    return {
+        "status": session.status,
+        "remaining": remaining_seconds(session),
+        "pause_count": session.pause_count,
+        "pause_warning_seconds": policy["warning_seconds"],
+        "pause_grace_seconds": policy["grace_seconds"],
+        "max_pause_count": policy["max_pause_count"],
+    }
 
 
 @app.post("/api/sessions/{session_id}/resume")
@@ -750,10 +853,11 @@ def resume(session_id: int, user: User = Depends(current_user), db: Session = De
         paused_at = paused_at.replace(tzinfo=timezone.utc)
     session.paused_seconds += max(0, int((now - paused_at).total_seconds()))
     session.pause_started_at = None
+    session.pause_warning_sent_at = None
     session.status = "running"
     open_work_segment(db, session, now)
     db.commit()
-    return {"status": session.status, "remaining": remaining_seconds(session, now)}
+    return {"status": session.status, "remaining": remaining_seconds(session, now), "pause_count": session.pause_count}
 
 
 @app.post("/api/sessions/{session_id}/finish")
@@ -765,9 +869,12 @@ def finish(session_id: int, background_tasks: BackgroundTasks, user: User = Depe
         raise HTTPException(409)
     now = datetime.now(timezone.utc)
     session.worked_seconds = worked_so_far(session, now)
+    if session.status == "paused":
+        session.paused_seconds += paused_seconds_so_far(session, now)
     session.ended_at = now
     session.pause_started_at = None
     session.status = "completed" if session.worked_seconds >= session.planned_seconds else "stopped"
+    session.stop_reason = None if session.status == "completed" else "manual"
     close_work_segment(db, session, now, session.worked_seconds)
     db.commit()
     if session.status == "completed":
@@ -819,7 +926,7 @@ def save_push_subscription(subscription: dict, user: User = Depends(current_user
 def admin_page(request: Request, _: User = Depends(admin_user), db: Session = Depends(get_db)):
     users = db.scalars(select(User).where(User.role != "admin").order_by(User.username)).all()
     rows = [{"user": account, **totals(db, account.id)} for account in users]
-    return templates.TemplateResponse(request, "admin.html", {"rows": rows})
+    return templates.TemplateResponse(request, "admin.html", {"rows": rows, "pause_policy": pause_policy(db)})
 
 
 @app.get("/admin/users/{user_id}", response_class=HTMLResponse)
@@ -864,32 +971,34 @@ def admin_user_activity(
 
 
 @app.post("/admin/users")
-def create_account(username: str = Form(), password: str = Form(), _: User = Depends(admin_user), db: Session = Depends(get_db)):
+def create_account(username: str = Form(), _: User = Depends(admin_user), db: Session = Depends(get_db)):
     username = username.strip()
-    if len(username) < 2 or len(password) < 8:
-        raise HTTPException(422, "ユーザー名2文字以上、パスワード8文字以上が必要です")
+    if len(username) < 2:
+        raise HTTPException(422, "利用者名は2文字以上が必要です")
     if db.scalars(select(User).where(User.username == username)).first():
         raise HTTPException(409, "同じユーザー名が存在します")
-    db.add(User(username=username, password_hash=hash_password(password), role="user"))
+    db.add(User(username=username, password_hash="!", role="user"))
     db.commit()
     return redirect("/admin")
 
 
-@app.post("/admin/users/{user_id}/password")
-def reset_account_password(
-    user_id: int,
-    password: str = Form(),
+@app.post("/admin/settings/pause-policy")
+def update_pause_policy(
+    pause_warning_minutes: int = Form(),
+    max_pause_count: int = Form(),
     _: User = Depends(admin_user),
     db: Session = Depends(get_db),
 ):
-    account = db.get(User, user_id)
-    if not account or account.role == "admin":
-        raise HTTPException(404, "利用者が見つかりません")
-    if len(password) < 8:
-        raise HTTPException(422, "パスワードは8文字以上が必要です")
-    account.password_hash = hash_password(password)
+    if pause_warning_minutes not in range(1, 61) or max_pause_count not in range(1, 11):
+        raise HTTPException(422, "警告時間は1〜60分、一時停止回数は1〜10回で設定してください")
+    policy = db.get(TimerPolicy, 1)
+    if policy is None:
+        policy = TimerPolicy(id=1)
+        db.add(policy)
+    policy.pause_warning_minutes = pause_warning_minutes
+    policy.max_pause_count = max_pause_count
     db.commit()
-    return redirect("/admin?password_reset=1")
+    return redirect("/admin?settings_saved=1")
 
 
 @app.get("/health")

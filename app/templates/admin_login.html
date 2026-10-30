@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}管理者ログイン | Focus Timer{% endblock %}
+{% block body %}
+<main class="card login">
+  <h1>管理者ログイン</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" class="stack">
+    <label>管理者名<input name="username" autocomplete="username" required autofocus></label>
+    <label>パスワード<input type="password" name="password" autocomplete="current-password" required></label>
+    <button>ログイン</button>
+  </form>
+  <a class="admin-login-link" href="/login">利用者の選択へ戻る</a>
+</main>
+{% endblock %}

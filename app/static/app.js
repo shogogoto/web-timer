@@ -96,20 +96,30 @@ async function playReminderSound() {
 document.addEventListener('pointerdown', () => { unlockReminderAudio().catch(() => {}); }, {once: true, capture: true});
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data?.type === 'reminder') playReminderSound().catch(() => {});
+    if (['reminder', 'pause-warning', 'pause-timeout'].includes(event.data?.type)) playReminderSound().catch(() => {});
   });
 }
 
-function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
+function studyTimer(initial, defaultSeconds, activityDetails, todayDate, pausePolicy = {}) {
   return {
     selectedSeconds: initial ? initial.planned : defaultSeconds,
     plannedSeconds: initial ? initial.planned : defaultSeconds,
     remaining: initial ? initial.remaining : defaultSeconds,
     phase: initial ? initial.status : 'select',
     sessionId: initial ? initial.id : null,
+    pauseCount: initial?.pause_count || 0,
+    maxPauseCount: pausePolicy.max_pause_count || 3,
+    pauseWarningSeconds: pausePolicy.warning_seconds || 300,
+    pauseGraceSeconds: pausePolicy.grace_seconds || 60,
+    pauseCountdown: Math.max(0, (pausePolicy.warning_seconds || 300) - (initial?.pause_elapsed || 0)),
+    pauseDeadline: null,
     error: '', copyStatus: '', interval: null, endAt: null, audioContext: null, pushRegistration: null, hasRung: false, hotkeyPending: false, faviconSignature: null,
     activityDetails, selectedDate: todayDate,
-    get display() { const s = this.phase === 'select' ? this.selectedSeconds : this.remaining; return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` },
+    get display() {
+      const value = this.phase === 'select' ? this.selectedSeconds : (this.phase === 'paused' ? this.pauseCountdown : this.remaining);
+      const s = Math.abs(value);
+      return `${value < 0 ? '+' : ''}${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+    },
     get selectedActivity() { return this.activityDetails[this.selectedDate] || {seconds:0,completed:0,stopped:0,pauses:0,sessions:[],hourly:[],ticks:[]} },
     get selectedDateLabel() { const [year,month,day]=this.selectedDate.split('-').map(Number); return `${month}月${day}日` },
     formatDuration(seconds) { if(seconds<60)return `${seconds}秒`; const minutes=Math.floor(seconds/60), rest=seconds%60; return rest ? `${minutes}分${rest}秒` : `${minutes}分` },
@@ -127,7 +137,17 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
         if(copied)setTimeout(()=>{this.copyStatus=''},2500);
       }
     },
-    init() { if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.updateFavicon(); this.ring();}}); this.registerPushWorker(); if (this.phase === 'running') this.runClock(); else if (['ready','paused'].includes(this.phase)) this.updateFavicon(); else restoreDefaultFavicon(); },
+    init() {
+      if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',event=>{
+        if(event.data?.type==='timer-finished'){this.phase='finished'; this.remaining=0; this.updateFavicon(); this.ring();}
+        if(event.data?.type==='pause-timeout') location.reload();
+      });
+      this.registerPushWorker();
+      if (this.phase === 'running') this.runClock();
+      else if (this.phase === 'paused') this.runPauseClock(initial?.pause_elapsed || 0);
+      else if (this.phase === 'ready') this.updateFavicon();
+      else restoreDefaultFavicon();
+    },
     updateFavicon() { const signature=`${this.phase}:${this.remaining}:${this.plannedSeconds}`; if(this.faviconSignature===signature)return; this.faviconSignature=signature; drawTimerFavicon(this.remaining,this.plannedSeconds,this.phase==='paused'); },
     async handleTimerHotkey(event) {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
@@ -159,12 +179,24 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate) {
       return response.json();
     },
     unlockAudio() { if (!this.audioContext) this.audioContext = new (window.AudioContext || window.webkitAudioContext)(); if(this.audioContext.state==='suspended')this.audioContext.resume(); },
-    async setDebugTimer(seconds) { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:seconds}); this.sessionId=r.id; this.plannedSeconds=seconds; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
-    async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.selectedSeconds}); this.sessionId=r.id; this.plannedSeconds=this.selectedSeconds; this.remaining=r.remaining; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
+    async setDebugTimer(seconds) { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:seconds}); this.sessionId=r.id; this.plannedSeconds=seconds; this.remaining=r.remaining; this.pauseCount=0; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
+    async setTimer() { try { this.unlockAudio(); await this.askNotification(); const r=await this.request('/api/sessions',{planned_seconds:this.selectedSeconds}); this.sessionId=r.id; this.plannedSeconds=this.selectedSeconds; this.remaining=r.remaining; this.pauseCount=0; this.phase=r.status; this.runClock(); } catch(e){this.error=e.message} },
     async start() { try { this.unlockAudio(); const r=await this.request(`/api/sessions/${this.sessionId}/start`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     runClock() { clearInterval(this.interval); this.endAt=Date.now()+this.remaining*1000; this.faviconSignature=null; this.updateFavicon(); this.interval=setInterval(()=>{this.remaining=Math.max(0,Math.ceil((this.endAt-Date.now())/1000)); this.updateFavicon(); if(this.remaining===0)this.finish(true)},250); },
-    async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); clearInterval(this.interval); this.remaining=r.remaining; this.phase='paused'; this.faviconSignature=null; this.updateFavicon(); } catch(e){this.error=e.message} },
-    async resume() { try { const r=await this.request(`/api/sessions/${this.sessionId}/resume`); this.remaining=r.remaining; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
+    runPauseClock(elapsedSeconds = 0) {
+      clearInterval(this.interval);
+      this.pauseDeadline=Date.now()+(this.pauseWarningSeconds-elapsedSeconds)*1000;
+      const update=()=>{
+        this.pauseCountdown=Math.ceil((this.pauseDeadline-Date.now())/1000);
+        this.faviconSignature=null;
+        this.updateFavicon();
+        if(this.pauseCountdown <= -this.pauseGraceSeconds){clearInterval(this.interval); location.reload();}
+      };
+      update();
+      this.interval=setInterval(update,250);
+    },
+    async pause() { try { const r=await this.request(`/api/sessions/${this.sessionId}/pause`); this.remaining=r.remaining; this.pauseCount=r.pause_count; this.maxPauseCount=r.max_pause_count; this.pauseWarningSeconds=r.pause_warning_seconds; this.pauseGraceSeconds=r.pause_grace_seconds; this.phase='paused'; this.runPauseClock(); } catch(e){this.error=e.message} },
+    async resume() { try { const r=await this.request(`/api/sessions/${this.sessionId}/resume`); clearInterval(this.interval); this.remaining=r.remaining; this.pauseCount=r.pause_count; this.phase='running'; this.runClock(); } catch(e){this.error=e.message} },
     async finish(completed) { try { clearInterval(this.interval); if(completed){this.phase='finished'; this.remaining=0; this.faviconSignature=null; this.updateFavicon(); this.ring();} else restoreDefaultFavicon(); await this.request(`/api/sessions/${this.sessionId}/finish`); if(completed) setTimeout(()=>location.reload(),2800); else location.reload(); } catch(e){this.error=e.message} },
     async registerPushWorker() { if(!window.isSecureContext){this.error='バックグラウンド通知を使うにはHTTPSでアクセスしてください'; return;} if('serviceWorker' in navigator && 'PushManager' in window) this.pushRegistration=await navigator.serviceWorker.register('/sw.js'); },
     async askNotification() { try { if(!window.isSecureContext || !('Notification' in window) || !('serviceWorker' in navigator)) return; if(Notification.permission==='default') await Notification.requestPermission(); if(Notification.permission!=='granted') return; const registration=this.pushRegistration || await navigator.serviceWorker.ready, config=await fetch('/api/push/config').then(r=>r.json()), existing=await registration.pushManager.getSubscription(), subscription=existing || await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:this.urlBase64ToUint8Array(config.application_server_key)}); await fetch('/api/push/subscriptions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(subscription)}); } catch(e){console.warn('Push notification setup failed',e)} },

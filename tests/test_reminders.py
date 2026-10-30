@@ -214,6 +214,8 @@ def test_existing_sqlite_session_table_gets_pause_count_column():
         columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(sessions)")}
         values = connection.exec_driver_sql("SELECT pause_count FROM sessions").fetchall()
     assert "pause_count" in columns
+    assert "pause_warning_sent_at" in columns
+    assert "stop_reason" in columns
     assert values == [(0,)]
 
 

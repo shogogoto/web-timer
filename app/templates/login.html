@@ -3,11 +3,15 @@
 {% block body %}
 <main class="card login">
   <h1>Focus Timer</h1>
+  <p class="login-lead">利用者を選んで開始</p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
-  <form method="post" class="stack">
-    <label>ユーザー名<input name="username" autocomplete="username" required autofocus></label>
-    <label>パスワード<input type="password" name="password" autocomplete="current-password" required></label>
-    <button>ログイン</button>
+  <form method="post" class="user-picker">
+    {% for user in users %}
+    <button type="submit" name="username" value="{{ user.username }}">{{ user.username }}</button>
+    {% else %}
+    <p class="muted">利用者がまだ登録されていません。</p>
+    {% endfor %}
   </form>
+  <a class="admin-login-link" href="/admin/login">管理者ログイン</a>
 </main>
 {% endblock %}

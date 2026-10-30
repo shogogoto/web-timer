@@ -43,6 +43,7 @@ button {
   cursor: pointer;
 }
 button:hover { filter: brightness(.96); }
+button:disabled { cursor: not-allowed; opacity: .55; filter: none; }
 
 .card, .timer-card {
   padding: 2rem;
@@ -51,6 +52,10 @@ button:hover { filter: brightness(.96); }
   box-shadow: 0 8px 30px var(--shadow);
 }
 .login { max-width: 24rem; margin: 12vh auto; }
+.login-lead { color: var(--muted); text-align: center; }
+.user-picker { display: grid; gap: .75rem; margin: 1.5rem 0; }
+.user-picker button { width: 100%; padding: .9rem 1rem; font-size: 1rem; }
+.admin-login-link { display: block; margin-top: 1.5rem; color: var(--muted); text-align: center; font-size: .9rem; }
 .stack, .finished { display: grid; gap: 1rem; }
 .finished strong { font-size: 1.5rem; }
 .finished span { color: var(--muted); }
@@ -100,6 +105,8 @@ input, select {
 .reminder-selected { margin: -1rem 0 0; color: var(--primary); }
 .hotkey-hint { margin: -.75rem 0; color: var(--muted); font-size: .8rem; }
 .hotkey-hint kbd { padding: .15rem .35rem; border: 1px solid var(--border); border-radius: .3rem; background: var(--background); font: inherit; }
+.pause-status { margin: 0; color: var(--muted); text-align: center; }
+.pause-status.warning { color: var(--danger); }
 
 .reminder-shell { max-width: 48rem; }
 .reminder-shell .card { margin-bottom: 1rem; }
@@ -194,9 +201,9 @@ input, select {
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--border); }
 .inline-form { display: flex; flex-wrap: wrap; gap: .75rem; }
-.password-reset summary { color: var(--primary); cursor: pointer; white-space: nowrap; }
-.password-reset form { min-width: 18rem; display: flex; gap: .5rem; margin-top: .6rem; }
-.password-reset input { min-width: 0; }
+.policy-form { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
+.policy-form label { display: grid; grid-template-columns: minmax(8rem, 1fr) 5rem auto; align-items: center; gap: .5rem; }
+.policy-form input { min-width: 0; }
 .user-link, .back-link { color: var(--primary); text-decoration: none; }
 .user-link:hover, .back-link:hover { text-decoration: underline; }
 .admin-activity-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }

@@ -2,15 +2,22 @@
 {% block body %}
 <main class="admin-shell">
   <header><h1>利用者の集中時間</h1><form method="post" action="/logout"><button class="link">ログアウト</button></form></header>
-  {% if request.query_params.get('password_reset') %}<p class="notice" role="status">パスワードを再設定しました。</p>{% endif %}
+  {% if request.query_params.get('settings_saved') %}<p class="notice" role="status">一時停止の設定を保存しました。</p>{% endif %}
   <section class="card">
-    <div class="table-scroll"><table><thead><tr><th>利用者</th><th>今日</th><th>今週</th><th>パスワード</th></tr></thead><tbody>
-      {% for row in rows %}<tr><td><a class="user-link" href="/admin/users/{{ row.user.id }}">{{ row.user.username }}</a></td><td>{{ format_duration_ja(row.today_seconds) }}</td><td>{{ format_duration_ja(row.week_seconds) }}</td><td>
-        <details class="password-reset"><summary>再設定</summary><form method="post" action="/admin/users/{{ row.user.id }}/password"><input type="password" name="password" placeholder="新しいパスワード" autocomplete="new-password" minlength="8" required><button>設定</button></form></details>
-      </td></tr>{% else %}<tr><td colspan="4">利用者はまだいません</td></tr>{% endfor %}
+    <div class="table-scroll"><table><thead><tr><th>利用者</th><th>今日</th><th>今週</th></tr></thead><tbody>
+      {% for row in rows %}<tr><td><a class="user-link" href="/admin/users/{{ row.user.id }}">{{ row.user.username }}</a></td><td>{{ format_duration_ja(row.today_seconds) }}</td><td>{{ format_duration_ja(row.week_seconds) }}</td></tr>{% else %}<tr><td colspan="3">利用者はまだいません</td></tr>{% endfor %}
     </tbody></table>
     </div>
   </section>
-  <section class="card"><h2>利用者を追加</h2><form method="post" action="/admin/users" class="inline-form"><input name="username" placeholder="ユーザー名" required><input type="password" name="password" placeholder="パスワード（8文字以上）" required minlength="8"><button>作成</button></form></section>
+  <section class="card"><h2>利用者を追加</h2><p class="muted">利用者はパスワードなしでログインできます。</p><form method="post" action="/admin/users" class="inline-form"><input name="username" placeholder="利用者名" minlength="2" required><button>作成</button></form></section>
+  <section class="card">
+    <h2>一時停止の設定</h2>
+    <form method="post" action="/admin/settings/pause-policy" class="policy-form">
+      <label>警告までの時間<input type="number" name="pause_warning_minutes" value="{{ pause_policy.warning_minutes }}" min="1" max="60" required><span>分</span></label>
+      <label>1回のタイマーで許可する回数<input type="number" name="max_pause_count" value="{{ pause_policy.max_pause_count }}" min="1" max="10" required><span>回</span></label>
+      <button>設定を保存</button>
+    </form>
+    <p class="muted">警告の1分後まで再開されなければ、作業時間を保存して途中終了します。</p>
+  </section>
 </main>
 {% endblock %}

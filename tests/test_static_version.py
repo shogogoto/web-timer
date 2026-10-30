@@ -39,7 +39,9 @@ def test_pause_count_replaces_confirmation_penalty():
     template = templates.env.loader.get_source(templates.env, "timer.html")[0]
     script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
     assert "一時停止（ペナルティ）" not in template
-    assert '>一時停止</button>' in template
+    assert "pauseCount >= maxPauseCount" in template
+    assert "一時停止上限" in template
+    assert "runPauseClock" in script
     assert "confirm(" not in script
     assert 'x-text="selectedActivity.pauses"' in template
     assert "activity.month_pauses" in template

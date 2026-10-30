@@ -34,6 +34,8 @@ class TimerSession(Base):
     worked_seconds: Mapped[int] = mapped_column(Integer, default=0)
     paused_seconds: Mapped[int] = mapped_column(Integer, default=0)
     pause_count: Mapped[int] = mapped_column(Integer, default=0)
+    pause_warning_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stop_reason: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(16), default="ready")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     user: Mapped[User] = relationship(back_populates="sessions")
@@ -52,6 +54,14 @@ class WorkSegment(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     session: Mapped[TimerSession] = relationship(back_populates="work_segments")
+
+
+class TimerPolicy(Base):
+    __tablename__ = "timer_policy"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    pause_warning_minutes: Mapped[int] = mapped_column(Integer, default=5)
+    max_pause_count: Mapped[int] = mapped_column(Integer, default=3)
 
 
 class PushSubscription(Base):

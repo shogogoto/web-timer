@@ -14,6 +14,7 @@ from .models import PushSubscription
 
 
 PRIVATE_KEY_PATH = Path(os.getenv("VAPID_PRIVATE_KEY", "data/vapid_private.pem"))
+PAUSE_PUSH_TTL = 10 * 60
 logger = logging.getLogger(__name__)
 
 
@@ -82,6 +83,26 @@ def send_timer_notification(db, user_id: int) -> None:
     })
 
 
+def send_pause_warning_notification(db, user_id: int, session_id: int, warning_minutes: int) -> None:
+    send_push_notification(db, user_id, {
+        "type": "pause-warning",
+        "title": f"一時停止が{warning_minutes}分を超えました",
+        "body": "1分後にタイマーを途中終了します",
+        "url": "/",
+        "tag": f"pause-warning-{session_id}",
+    }, ttl=PAUSE_PUSH_TTL)
+
+
+def send_pause_timeout_notification(db, user_id: int, session_id: int) -> None:
+    send_push_notification(db, user_id, {
+        "type": "pause-timeout",
+        "title": "タイマーを途中終了しました",
+        "body": "一時停止時間が上限を超えました。作業時間は保存されています",
+        "url": "/",
+        "tag": f"pause-timeout-{session_id}",
+    }, ttl=PAUSE_PUSH_TTL)
+
+
 def send_reminder_notification(
     db,
     user_id: int,
@@ -108,6 +129,27 @@ async def send_timer_notification_async(db_factory, user_id: int) -> None:
     def send() -> None:
         with db_factory() as db:
             send_timer_notification(db, user_id)
+
+    await asyncio.to_thread(send)
+
+
+async def send_pause_warning_notification_async(
+    db_factory,
+    user_id: int,
+    session_id: int,
+    warning_minutes: int,
+) -> None:
+    def send() -> None:
+        with db_factory() as db:
+            send_pause_warning_notification(db, user_id, session_id, warning_minutes)
+
+    await asyncio.to_thread(send)
+
+
+async def send_pause_timeout_notification_async(db_factory, user_id: int, session_id: int) -> None:
+    def send() -> None:
+        with db_factory() as db:
+            send_pause_timeout_notification(db, user_id, session_id)
 
     await asyncio.to_thread(send)
 

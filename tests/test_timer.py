@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.main import close_work_segment, open_work_segment, pause, resume, set_timer
-from app.models import TimerSession, User, WorkSegment
+from app.main import close_work_segment, open_work_segment, pause, process_timer_deadlines, resume, set_timer
+from app.models import TimerPolicy, TimerSession, User, WorkSegment
 from app.timer import worked_so_far
 
 
@@ -81,3 +83,67 @@ def test_timer_api_records_segments_on_start_pause_and_resume():
         assert session.pause_count == 2
         assert len(segments) == 2
         assert segments[1].ended_at is not None
+
+
+def test_pause_count_is_limited_by_policy():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        user = User(username="user", password_hash="!", role="user")
+        db.add(user)
+        db.flush()
+        db.add(TimerPolicy(id=1, pause_warning_minutes=5, max_pause_count=2))
+        db.commit()
+
+        result = set_timer(300, user, db)
+        pause(result["id"], user, db)
+        resume(result["id"], user, db)
+        pause(result["id"], user, db)
+        resume(result["id"], user, db)
+
+        with pytest.raises(HTTPException) as limited:
+            pause(result["id"], user, db)
+        assert limited.value.status_code == 409
+        assert "2回まで" in limited.value.detail
+
+
+def test_paused_timer_warns_once_then_force_stops_and_preserves_work():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    started_at = datetime(2026, 8, 14, 10, 0, tzinfo=timezone.utc)
+    paused_at = started_at + timedelta(minutes=12)
+    with Session(engine) as db:
+        user = User(username="user", password_hash="!", role="user")
+        db.add(user)
+        db.flush()
+        session = TimerSession(
+            user_id=user.id,
+            planned_seconds=2400,
+            started_at=started_at,
+            pause_started_at=paused_at,
+            status="paused",
+            pause_count=1,
+        )
+        db.add(session)
+        db.commit()
+
+        before = process_timer_deadlines(db, paused_at + timedelta(minutes=4, seconds=59))
+        assert before["pause_warnings"] == []
+
+        warning = process_timer_deadlines(db, paused_at + timedelta(minutes=5))
+        db.commit()
+        assert warning["pause_warnings"] == [{
+            "user_id": user.id,
+            "session_id": session.id,
+            "warning_minutes": 5,
+        }]
+        assert process_timer_deadlines(db, paused_at + timedelta(minutes=5, seconds=30))["pause_warnings"] == []
+
+        timeout = process_timer_deadlines(db, paused_at + timedelta(minutes=6))
+        db.commit()
+        db.refresh(session)
+        assert timeout["pause_timeouts"] == [{"user_id": user.id, "session_id": session.id}]
+        assert session.status == "stopped"
+        assert session.stop_reason == "pause_timeout"
+        assert session.worked_seconds == 12 * 60
+        assert session.paused_seconds == 6 * 60
