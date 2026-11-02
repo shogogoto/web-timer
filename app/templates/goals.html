@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}目標設定 | Focus Timer{% endblock %}
+{% block body %}
+<main class="timer-shell">
+  <header><h1>目標設定</h1><a class="back-link" href="/">タイマーへ戻る</a></header>
+  <section class="card">
+    {% if request.query_params.get('saved') %}<p class="notice" role="status">目標を保存しました。</p>{% endif %}
+    <form method="post" class="stack goal-form">
+      <fieldset><legend>1日の目標時間</legend><div class="goal-time">
+        <label>時間<input type="number" name="hours" min="0" max="24" value="{{ user.daily_goal_minutes // 60 }}" required></label>
+        <label>分<input type="number" name="minutes" min="0" max="59" value="{{ user.daily_goal_minutes % 60 }}" required></label>
+      </div></fieldset>
+      <label>週の達成条件<select name="weekly_days">{% for days in range(1, 8) %}<option value="{{ days }}"{% if user.weekly_goal_days == days %} selected{% endif %}>週{{ days }}日以上、日目標を達成</option>{% endfor %}</select></label>
+      <button class="primary">目標を保存</button>
+    </form>
+    <p class="muted">0時間0分で目標を無効にできます。週は月曜〜日曜です。</p>
+    <p class="muted">達成した日と週だけを強調します。過去の記録も現在の目標で判定します。作業時間はタイマー終了後に反映されます。</p>
+  </section>
+</main>
+{% endblock %}

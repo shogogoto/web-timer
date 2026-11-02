@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
 <main x-data='studyTimer({{ state | tojson }}, {{ default_seconds }}, {{ activity.details | tojson }}, {{ activity.selected_date | tojson }}, {{ pause_policy | tojson }})' x-init="init()" @keydown.window="handleTimerHotkey($event)" class="timer-shell">
-  <header><span>{{ user.username }}</span><nav><a class="link" href="/reminders">リマインダー</a><form method="post" action="/logout"><button class="link">ログアウト</button></form></nav></header>
+  <header><span>{{ user.username }}</span><nav><a class="link" href="/goals">目標</a><a class="link" href="/reminders">リマインダー</a><form method="post" action="/logout"><button class="link">ログアウト</button></form></nav></header>
   <section class="timer-card">
     <div class="clock" x-text="display"></div>
     {% if reminder_minutes %}<p class="reminder-selected">リマインダーの{{ reminder_minutes }}分を選択しました</p>{% endif %}
@@ -58,9 +58,10 @@
           <h2>{{ activity.week_label }} <small>時間:分</small></h2>
           <a href="/?week={{ activity.next_week }}&month={{ activity.next_week_month }}" aria-label="翌週">›</a>
         </div>
-        <div class="week-chart">
+        {% if activity.goal_seconds %}<p class="goal-progress{% if activity.week_goal_achieved %} achieved{% endif %}">日目標 {{ format_hours_minutes(activity.goal_seconds) }} · {{ activity.achieved_days }}/{{ activity.goal_days }}日達成{% if activity.week_goal_achieved %} ✓ 週目標達成{% endif %}</p>{% endif %}
+        <div class="week-chart{% if activity.week_goal_achieved %} goal-achieved{% endif %}">
         {% for day in activity.week %}
-        <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="week-day{% if day.is_today %} current{% endif %}" title="{{ day.label }}曜日: {{ day.duration_long }}">
+        <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="week-day{% if day.is_today %} current{% endif %}{% if day.goal_achieved %} goal-achieved{% endif %}" title="{{ day.label }}曜日: {{ day.duration_long }}{% if day.goal_achieved %} · 目標達成{% endif %}">
           <span class="bar-value">{{ day.duration }}</span>
           <div class="bar-track"><div class="bar" style="height: {{ day.percent }}%"></div></div>
           <span>{{ day.label }}</span>
@@ -89,8 +90,8 @@
       </div>
       <div class="calendar weekdays">{% for label in ['月','火','水','木','金','土','日'] %}<span>{{ label }}</span>{% endfor %}</div>
       <div class="calendar month-grid bubble-calendar">
-        {% for week in activity.month_weeks %}<div class="calendar-week{% if week[0].is_viewed_week %} viewed-week{% endif %}">{% for day in week %}
-        <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.duration }}">
+        {% for week in activity.month_weeks %}<div class="calendar-week{% if week[0].is_viewed_week %} viewed-week{% endif %}{% if week[0].week_goal_achieved %} goal-achieved{% endif %}">{% for day in week %}
+        <button type="button" @click="selectDate('{{ day.date }}', true)" :class="{'selected':selectedDate==='{{ day.date }}'}" class="calendar-day{% if not day.in_month %} outside{% endif %}{% if day.is_today %} current{% endif %}{% if day.goal_achieved %} goal-achieved{% endif %}"{% if not day.in_month %} disabled{% endif %} title="{{ day.day }}日: {{ day.duration }}{% if day.goal_achieved %} · 目標達成{% endif %}">
           <span class="day-number">{{ day.day }}</span>{% if day.has_activity %}<span class="activity-bubble" style="width:{{ day.bubble_size }}px;height:{{ day.bubble_size }}px"></span>{% endif %}
         </button>
         {% endfor %}</div>{% endfor %}

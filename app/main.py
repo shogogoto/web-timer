@@ -55,6 +55,11 @@ def initialize_database(database_engine=engine) -> None:
     if database_engine.dialect.name != "sqlite":
         return
     with database_engine.begin() as connection:
+        user_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(users)")}
+        if "daily_goal_minutes" not in user_columns:
+            connection.exec_driver_sql("ALTER TABLE users ADD COLUMN daily_goal_minutes INTEGER NOT NULL DEFAULT 0")
+        if "weekly_goal_days" not in user_columns:
+            connection.exec_driver_sql("ALTER TABLE users ADD COLUMN weekly_goal_days INTEGER NOT NULL DEFAULT 5")
         reminder_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(reminders)")}
         if "message" not in reminder_columns:
             connection.exec_driver_sql("ALTER TABLE reminders ADD COLUMN message VARCHAR(120)")
@@ -301,6 +306,9 @@ def activity_summary(
     else:
         now = now.astimezone(TZ)
     today = now.date()
+    account = db.get(User, user_id)
+    goal_seconds = (account.daily_goal_minutes or 0) * 60 if account else 0
+    goal_days = account.weekly_goal_days if account else 5
     current_week_start = today - timedelta(days=today.weekday())
     viewed_week_date = target_week or today
     week_start = viewed_week_date - timedelta(days=viewed_week_date.weekday())
@@ -325,6 +333,10 @@ def activity_summary(
         (week_start_utc, week_end_utc),
         (month_start_utc, month_end_utc),
         (year_start_utc, year_end_utc),
+        (
+            datetime.combine(month_start - timedelta(days=month_start.weekday()), datetime.min.time(), TZ).astimezone(timezone.utc),
+            datetime.combine(next_month + timedelta(days=(7 - next_month.weekday()) % 7), datetime.min.time(), TZ).astimezone(timezone.utc),
+        ),
     ])
     merged_ranges: list[tuple[datetime, datetime]] = []
     for range_start, range_end in ranges:
@@ -443,6 +455,12 @@ def activity_summary(
                 add_interval(clipped_start, clipped_end, session.status, session.id)
 
     weekday_labels = ["月", "火", "水", "木", "金", "土", "日"]
+    def goal_achieved(day):
+        return bool(goal_seconds and day <= today and daily_seconds.get(day, 0) >= goal_seconds)
+
+    def week_achieved(start):
+        return bool(goal_seconds and sum(goal_achieved(start + timedelta(days=i)) for i in range(7)) >= goal_days)
+
     week = []
     week_max_minutes = max((daily_seconds.get(week_start + timedelta(days=i), 0) // 60 for i in range(7)), default=0)
     for index, label in enumerate(weekday_labels):
@@ -457,6 +475,7 @@ def activity_summary(
             "duration_long": format_hours_minutes(seconds),
             "percent": round(minutes / week_max_minutes * 100) if week_max_minutes else 0,
             "is_today": day == today,
+            "goal_achieved": goal_achieved(day),
         })
 
     month_max = max((seconds for day, seconds in daily_seconds.items() if day.month == month_start.month and day.year == month_start.year), default=0)
@@ -472,6 +491,8 @@ def activity_summary(
             "in_month": day.month == month_start.month,
             "is_today": day == today,
             "is_viewed_week": week_start <= day <= week_end,
+            "goal_achieved": goal_achieved(day),
+            "week_goal_achieved": week_achieved(dates[0]),
         } for day in dates])
 
     month_seconds = sum(seconds for day, seconds in daily_seconds.items() if day.month == month_start.month and day.year == month_start.year)
@@ -537,6 +558,10 @@ def activity_summary(
         detail["sessions"] = sorted(detail["sessions"])
     return {
         "today_seconds": daily_seconds.get(today, 0),
+        "goal_seconds": goal_seconds,
+        "goal_days": goal_days,
+        "achieved_days": sum(day["goal_achieved"] for day in week),
+        "week_goal_achieved": week_achieved(week_start),
         "today_minutes": daily_seconds.get(today, 0) // 60,
         "week": week,
         "week_label": "今週" if week_start == current_week_start else f"{week_start.month}月{week_start.day}日〜{week_end.month}月{week_end.day}日",
@@ -668,6 +693,28 @@ def timer_page(
             "pause_policy": policy,
         },
     )
+
+
+@app.get("/goals", response_class=HTMLResponse)
+def goal_page(request: Request, user: User = Depends(current_user)):
+    return templates.TemplateResponse(request, "goals.html", {"user": user})
+
+
+@app.post("/goals")
+def save_goals(
+    hours: int = Form(),
+    minutes: int = Form(),
+    weekly_days: int = Form(),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    total = hours * 60 + minutes
+    if hours not in range(25) or minutes not in range(60) or total > 1440 or weekly_days not in range(1, 8):
+        raise HTTPException(422, "目標時間は0〜24時間、週の達成日数は1〜7日で設定してください")
+    user.daily_goal_minutes = total
+    user.weekly_goal_days = weekly_days
+    db.commit()
+    return redirect("/goals?saved=1")
 
 
 WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"]

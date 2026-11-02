@@ -178,6 +178,17 @@ input, select {
 .calendar-day.current .day-number { color: var(--primary); font-weight: 700; }
 .calendar-day.current .activity-bubble { outline: 2px solid var(--primary); outline-offset: 4px; }
 .calendar-day.selected { background: var(--control); }
+.goal-progress { text-align: center; color: var(--muted); font-size: .85rem; }
+.goal-progress.achieved { color: var(--primary); font-weight: 700; }
+.week-day.goal-achieved .bar-value::after { content: ' ✓'; color: var(--primary); }
+.calendar-day.goal-achieved .activity-bubble { background: var(--primary); }
+.calendar-day.goal-achieved .day-number::after { content: ' ✓'; color: var(--primary); }
+.calendar-week.goal-achieved { box-shadow: inset 0 0 0 2px var(--primary); background: var(--week-highlight); }
+.week-chart.goal-achieved { padding: .4rem; border-radius: .65rem; background: var(--week-highlight); }
+.goal-form fieldset { min-width: 0; border: 1px solid var(--border); border-radius: .6rem; }
+.goal-time { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.goal-time label { min-width: 0; }
+.goal-time input { width: 100%; min-width: 0; }
 .detail-heading { display: flex; justify-content: space-between; align-items: baseline; }
 .detail-heading span { color: var(--muted); }
 .detail-heading b { color: var(--text); font-variant-numeric: tabular-nums; }

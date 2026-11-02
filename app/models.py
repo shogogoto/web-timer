@@ -17,6 +17,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(16), default="user")
+    daily_goal_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    weekly_goal_days: Mapped[int] = mapped_column(Integer, default=5)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     sessions: Mapped[list["TimerSession"]] = relationship(back_populates="user")
     reminders: Mapped[list["Reminder"]] = relationship(back_populates="user", cascade="all, delete-orphan")
