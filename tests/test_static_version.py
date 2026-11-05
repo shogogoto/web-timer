@@ -76,6 +76,16 @@ def test_paused_favicon_keeps_progress_and_adds_pause_marker():
     assert "`${this.phase}:${this.remaining}:${this.plannedSeconds}`" in script
 
 
+def test_pause_clock_does_not_repeatedly_redraw_favicon_or_poll_server():
+    script = (Path(templates.env.loader.searchpath[0]).parent / "static" / "app.js").read_text()
+    pause_clock = script.split("runPauseClock(elapsedSeconds = 0) {", 1)[1].split("async pause()", 1)[0]
+    update = pause_clock.split("const update=()=>{", 1)[1].split("};", 1)[0]
+    assert pause_clock.count("this.updateFavicon()") == 1
+    assert "favicon" not in update
+    assert "fetch(" not in pause_clock
+    assert "this.request(" not in pause_clock
+
+
 def test_viewed_week_uses_background_instead_of_an_outline():
     style = (Path(templates.env.loader.searchpath[0]).parent / "static" / "style.css").read_text()
     rule = style.split(".calendar-week.viewed-week", 1)[1].split("}", 1)[0]

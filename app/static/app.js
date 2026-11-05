@@ -186,10 +186,9 @@ function studyTimer(initial, defaultSeconds, activityDetails, todayDate, pausePo
     runPauseClock(elapsedSeconds = 0) {
       clearInterval(this.interval);
       this.pauseDeadline=Date.now()+(this.pauseWarningSeconds-elapsedSeconds)*1000;
+      this.updateFavicon();
       const update=()=>{
         this.pauseCountdown=Math.ceil((this.pauseDeadline-Date.now())/1000);
-        this.faviconSignature=null;
-        this.updateFavicon();
         if(this.pauseCountdown <= -this.pauseGraceSeconds){clearInterval(this.interval); location.reload();}
       };
       update();
